@@ -637,7 +637,16 @@ public partial class MainWindowViewModel : ReactiveObject, IScreen
 
 		var launchParams = string.Join(" ", exeArgs);
 
-		if (Settings.LaunchType == LaunchGameType.Exe)
+		var launchType = Settings.LaunchType;
+		if (launchType == LaunchGameType.Exe && !OperatingSystem.IsWindows())
+		{
+			// bg3.exe can't run directly outside Windows; Steam starts it under Proton with the user's launch options
+			// (e.g. WINEDLLOVERRIDES="DWrite=n,b" %command% for the Script Extender).
+			DivinityApp.Log("Launch type is 'Exe', but this isn't Windows. Launching through Steam (Proton) instead.");
+			launchType = LaunchGameType.Steam;
+		}
+
+		if (launchType == LaunchGameType.Exe)
 		{
 			if(Settings.GameExecutablePath.IsValid())
 			{
@@ -681,7 +690,7 @@ public partial class MainWindowViewModel : ReactiveObject, IScreen
 				_globalCommands.ShowAlert(Loca.Alert_Error_GameExePathInvalid, AlertType.Danger, 30);
 			}
 		}
-		else if (Settings.LaunchType == LaunchGameType.Steam)
+		else if (launchType == LaunchGameType.Steam)
 		{
 			var appid = AppSettings.DefaultPathways.Steam.AppID ?? "1086940";
 			var steamUrl = $"steam://run/{appid}//{launchParams}";
