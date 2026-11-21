@@ -19,6 +19,13 @@
 		<PackageReference Include="System.IO.Abstractions" />
 		<PackageReference Include="TextCopy" />
 		<PackageReference Include="ZiggyCreatures.FusionCache" />
+		<!-- Mod sync: UPnP / NAT-PMP port mapping -->
+		<PackageReference Include="Mono.Nat" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Mod sync: Kestrel HTTPS server hosted inside the app -->
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
 
 	<ItemGroup>

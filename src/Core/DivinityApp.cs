@@ -197,8 +197,8 @@ public static class DivinityApp
 
 	public static void Log(string msg, [CallerMemberName] string mName = "", [CallerFilePath] string path = "", [CallerLineNumber] int line = 0)
 	{
-		var finalMessage = $"[{_fs.Path.GetFileName(path)}:{mName}({line})] {StringUtils.ReplaceSpecialPathways(msg)}";
-		LogMethod(finalMessage);
+		var finalMessage = $"[{(_fs?.Path.GetFileName(path) ?? System.IO.Path.GetFileName(path))}:{mName}({line})] {StringUtils.ReplaceSpecialPathways(msg)}";
+		LogMethod?.Invoke(finalMessage);
 		//Console.WriteLine(finalMessage);
 	}
 
