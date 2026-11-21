@@ -143,14 +143,9 @@ public static class DivinityApp
 			var ass = Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
 			_exePath = ass.Location;
 		}
-		if(_fs != null)
-		{
-			_appDirectory = _fs.Path.GetDirectoryName(_exePath)!;
-		}
-		else
-		{
-			_appDirectory = System.IO.Path.GetDirectoryName(_exePath)!;
-		}
+		//Use the app's base directory rather than the exe's directory: when launched via `dotnet BG3ModManager.dll`
+		//(common on Linux), MainModule is the dotnet host, so its directory would be e.g. /usr/lib/dotnet.
+		_appDirectory = System.IO.Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
 
 		IgnoredMods = new(x => x.UUID ?? "");
 		IgnoredDependencyMods = [];

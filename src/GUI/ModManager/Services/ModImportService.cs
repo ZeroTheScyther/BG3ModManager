@@ -600,7 +600,7 @@ public class ModImportService(IDialogService dialogService, IFileSystemService f
 			{
 				_fs.EnsureParentDirectoryExists(outputPath);
 				using var stream = _fs.File.OpenWrite(outputPath);
-				using var zipWriter = WriterFactory.OpenAsyncWriter(stream, ArchiveType.Zip, _exportWriterOptions, token);
+				await using var zipWriter = await WriterFactory.OpenAsyncWriter(stream, ArchiveType.Zip, _exportWriterOptions, token);
 
 				var orderFileName = ModDataLoader.MakeSafeFilename(_fs.Path.Join(selectedModOrder.Name + ".json"), '_');
 				var contents = JsonSerializer.Serialize(selectedModOrder, _jsonOptIgnoreNone);

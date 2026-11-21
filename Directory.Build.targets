@@ -1,0 +1,36 @@
+<Project>
+	<!--
+	Some submodules (e.g. SukiUI) set GeneratePackageOnBuild=true, and packing fails on a fresh
+	clone (NU5046, icon not found). We consume them as project references, never as .nupkg,
+	so skip packing. (Directory.Build.targets is evaluated after the csproj, so this wins.)
+	-->
+	<PropertyGroup>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<!--
+	The TreeDataGrid submodule pins Microsoft.SourceLink.GitHub 10.0.103, pulling in Microsoft.Build.Tasks.Git
+	10.0.103 (GHSA-23fw-v26w-5fgq, fixed in 10.0.111). It is a build-time-only tool and nothing from it ships,
+	but the submodule sets TreatWarningsAsErrors, so the audit warning fails restore. Keep it visible as a
+	warning for that project only; every other project still treats vulnerabilities as errors.
+	-->
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Avalonia.Controls.TreeDataGrid'">
+		<WarningsNotAsErrors>$(WarningsNotAsErrors);NU1902</WarningsNotAsErrors>
+	</PropertyGroup>
+
+	<!--
+	LSLibStats intentionally excludes its own GplexBuffers.cs / ShiftReduceParserCode.cs so it uses the
+	public QUT.Gppg / QUT.GplexBuffers runtime exported by LSLib. However, the YaccLexTools targets
+	re-add those files to @(Compile) whenever they regenerate the parsers, which always happens on a
+	fresh clone (e.g. CI), producing duplicate internal types and CS0053/CS0311 errors.
+	Re-apply the exclusion after the generators run.
+	-->
+	<Target Name="BG3MM_ExcludeDuplicateParserRuntime"
+			Condition="'$(MSBuildProjectName)' == 'LSLibStats'"
+			AfterTargets="YaccLexToolsGplexSingleTarget;YaccLexToolsGppgSingleTarget"
+			BeforeTargets="CoreCompile">
+		<ItemGroup>
+			<Compile Remove="GplexBuffers.cs;ShiftReduceParserCode.cs" />
+		</ItemGroup>
+	</Target>
+</Project>

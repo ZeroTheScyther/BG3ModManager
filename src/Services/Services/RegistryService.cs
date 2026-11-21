@@ -52,16 +52,106 @@ public partial class RegistryService : IRegistryService
 
 	public string? GetGoGInstallPath() => _regHelper?.GetGOGInstallPath();
 
+	/// <summary>
+	/// Returns the Steam root plus every library listed in libraryfolders.vdf (deduplicated, existing folders only).
+	/// </summary>
+	public List<string> GetSteamLibraryFolders()
+	{
+		List<string> libraryFolders = [];
+		var steamInstallPath = GetSteamInstallPath();
+		if (!steamInstallPath.IsExistingDirectory()) return libraryFolders;
+
+		void Add(string? path)
+		{
+			if (!path.IsExistingDirectory()) return;
+			var full = _fs.Path.TrimEndingDirectorySeparator(_fs.Path.GetFullPath(path!));
+			if (!libraryFolders.Any(x => string.Equals(x, full, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)))
+			{
+				libraryFolders.Add(full);
+			}
+		}
+
+		Add(steamInstallPath);
+
+		var libraryFile = _fs.Path.Join(steamInstallPath, PATH_Steam_LibraryFile);
+		if (_fs.File.Exists(libraryFile))
+		{
+			try
+			{
+				var libraryData = VdfConvert.Deserialize(_fs.File.ReadAllText(libraryFile));
+				foreach (var token in libraryData.Value.Children().OfType<VProperty>())
+				{
+					if (token.Key == "TimeNextStatsReport" || token.Key == "ContentStatsID") continue;
+					var path = token.Value.Children().OfType<VProperty>().FirstOrDefault(x => x.Key == "path");
+					if (path?.Value is VValue innerValue)
+					{
+						var p = innerValue.Value<string>();
+						if (p.IsExistingDirectory())
+						{
+							DivinityApp.Log($"Found steam library folder at '{p}'.");
+							Add(p);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				DivinityApp.Log($"Error parsing steam library file at '{libraryFile}': {ex}");
+			}
+		}
+		else
+		{
+			DivinityApp.Log($"Steam library file not found at '{libraryFile}'");
+		}
+		return libraryFolders;
+	}
+
+	/// <summary>
+	/// Finds the Steam library that has the given app installed (the one containing appmanifest_[appid].acf).
+	/// Proton prefixes (compatdata) live in that same library, so this is used for both the game and its data.
+	/// </summary>
+	private string? GetSteamLibraryForApp(string steamAppId, out string? installDir)
+	{
+		installDir = null;
+		foreach (var library in GetSteamLibraryFolders())
+		{
+			var appManifest = _fs.Path.Join(library, "steamapps", $"appmanifest_{steamAppId}.acf");
+			if (!appManifest.IsExistingFile()) continue;
+			try
+			{
+				var manifestData = VdfConvert.Deserialize(_fs.File.ReadAllText(appManifest));
+				var prop = manifestData?.Value.Children().OfType<VProperty>().FirstOrDefault(x => x.Key == "installdir");
+				var dir = prop?.Value?.Value<string>();
+				if (dir.IsValid())
+				{
+					installDir = dir;
+					DivinityApp.Log($"Using appmanifest installDir '{dir}' from library '{library}'");
+				}
+			}
+			catch (Exception ex)
+			{
+				DivinityApp.Log($"Error parsing app manifest '{appManifest}': {ex}");
+			}
+			return library;
+		}
+		return null;
+	}
+
 	public string? GetProtonDataPath(string steamAppId)
 	{
-		var steamInstallPath = GetSteamInstallPath();
-		if (steamInstallPath.IsExistingDirectory())
+		//Proton prefix: <library>/steamapps/compatdata/<appid>/pfx/drive_c/users/steamuser/AppData/Local
+		const string protonLocal = "pfx/drive_c/users/steamuser/AppData/Local";
+
+		var gameLibrary = GetSteamLibraryForApp(steamAppId, out _);
+		IEnumerable<string> libraries = GetSteamLibraryFolders();
+		if (gameLibrary != null) libraries = libraries.Prepend(gameLibrary);
+
+		foreach (var library in libraries)
 		{
-			//Proton check
-			//~/.local/share/Steam/steamapps/compatdata/1086940/pfx/drive_c/users/steamuser/AppData/Local/Larian Studios
-			var protonLocalFolder = _fs.Path.Join(steamInstallPath, $"steamapps/compatdata/{steamAppId}/pfx/drive_c/users/steamuser/AppData/Local");
-			if(protonLocalFolder.IsExistingDirectory())
+			var protonLocalFolder = _fs.Path.Join(library, "steamapps", "compatdata", steamAppId, protonLocal);
+			if (protonLocalFolder.IsExistingDirectory())
 			{
+				DivinityApp.Log($"Found Proton app data folder at '{protonLocalFolder}'");
 				return protonLocalFolder;
 			}
 		}
@@ -72,84 +162,20 @@ public partial class RegistryService : IRegistryService
 	{
 		try
 		{
-			var steamInstallPath = GetSteamInstallPath();
-			if (steamInstallPath.IsExistingDirectory())
-			{
-				var appManifest = _fs.Path.Join(steamInstallPath, "steamapps", $"appmanifest_{steamAppId}.acf");
-				if (appManifest.IsExistingFile())
-				{
-					var manifestData = VdfConvert.Deserialize(_fs.File.ReadAllText(appManifest));
-					if (manifestData != null)
-					{
-						foreach (var prop in manifestData.Value.Children().OfType<VProperty>())
-						{
-							if (prop.Key == "installdir")
-							{
-								var installDir = prop.Value?.Value<string>();
-								if (installDir.IsValid())
-								{
-									gameFolder = installDir;
-									DivinityApp.Log($"Using appmanifest installDir '{installDir}'");
-								}
-								break;
-							}
-						}
-					}
-				}
+			var gameLibrary = GetSteamLibraryForApp(steamAppId, out var installDir);
+			if (installDir.IsValid()) gameFolder = installDir!;
 
-				var folder = _fs.Path.Join(steamInstallPath, "steamapps", "common", gameFolder);
+			IEnumerable<string> libraries = GetSteamLibraryFolders();
+			if (gameLibrary != null) libraries = libraries.Prepend(gameLibrary);
+
+			foreach (var library in libraries.Distinct())
+			{
+				var folder = _fs.Path.Join(library, "steamapps", "common", gameFolder);
 				DivinityApp.Log($"Looking for game at '{folder}'.");
-				if (_fs.Directory.Exists(folder))
+				if (folder.IsExistingDirectory())
 				{
 					DivinityApp.Log($"Found game at '{folder}'.");
 					return folder;
-				}
-				else
-				{
-					var libraryFile = _fs.Path.Join(steamInstallPath, PATH_Steam_LibraryFile);
-					DivinityApp.Log($"Game not found. Looking for Steam libraries in file '{libraryFile}'.");
-					if (_fs.File.Exists(libraryFile))
-					{
-						List<string> libraryFolders = [];
-						try
-						{
-							var libraryData = VdfConvert.Deserialize(_fs.File.ReadAllText(libraryFile));
-							foreach (VProperty token in libraryData.Value.Children())
-							{
-								if (token.Key != "TimeNextStatsReport" && token.Key != "ContentStatsID")
-								{
-									var path = token.Value.Children().Cast<VProperty>().FirstOrDefault(x => x.Key == "path");
-									if (path != null && path.Value is VValue innerValue)
-									{
-										var p = innerValue.Value<string>();
-										if (p.IsExistingDirectory())
-										{
-											DivinityApp.Log($"Found steam library folder at '{p}'.");
-											libraryFolders.Add(p);
-										}
-									}
-								}
-							}
-						}
-						catch (Exception ex)
-						{
-							DivinityApp.Log($"Error parsing steam library file at '{libraryFile}': {ex}");
-						}
-
-						foreach (var folderPath in libraryFolders)
-						{
-							var checkFolder = _fs.Path.Join(folderPath, "steamapps", "common", gameFolder);
-							if (checkFolder.IsExistingDirectory())
-							{
-								DivinityApp.Log($"Found game at '{checkFolder}'.");
-								return checkFolder;
-							}
-						}
-					}
-					else
-					{
-						DivinityApp.Log($"Steam library not found at '{libraryFile}'");
-					}
 				}
 			}
 		}
