@@ -50,6 +50,11 @@ public partial class GlobalCommandsService : ReactiveObject, IGlobalCommandsServ
 	{
 		if (string.IsNullOrEmpty(path)) throw new ArgumentNullException(nameof(path), "path is null or empty");
 
+		if (!OperatingSystem.IsWindows() && (_fs.File.Exists(path) || _fs.Directory.Exists(path)))
+		{
+			return OpenInFileManagerUnix(_fs.Path.GetFullPath(path), _fs.File.Exists(path));
+		}
+
 		if (_fs.File.Exists(path))
 		{
 			return ProcessHelper.TryRunCommand("explorer.exe", $"/select, \"{_fs.Path.GetFullPath(path)}\"");
@@ -63,6 +68,44 @@ public partial class GlobalCommandsService : ReactiveObject, IGlobalCommandsServ
 			ShowAlert($"Error opening '{path}': File does not exist!", AlertType.Danger, 10);
 		}
 		return false;
+	}
+
+	/// <summary>
+	/// Linux/macOS replacement for explorer.exe. Files: ask the desktop's file manager to show the folder with the file
+	/// selected (freedesktop org.freedesktop.FileManager1.ShowItems, supported by Nautilus, Dolphin, Nemo, Thunar, Caja...),
+	/// falling back to opening the containing folder. Folders: xdg-open (or `open` on macOS).
+	/// Arguments are passed via ArgumentList, so paths with spaces/apostrophes ("Baldur's Gate 3") need no quoting.
+	/// </summary>
+	private static bool OpenInFileManagerUnix(string fullPath, bool isFile)
+	{
+		static bool Run(string tool, int waitMs, params string[] args)
+		{
+			try
+			{
+				var psi = new System.Diagnostics.ProcessStartInfo(tool) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+				foreach (var a in args) psi.ArgumentList.Add(a);
+				using var p = System.Diagnostics.Process.Start(psi);
+				if (p == null) return false;
+				if (waitMs <= 0) return true; // xdg-open may stay alive while the file manager starts; don't block on it
+				return p.WaitForExit(waitMs) && p.ExitCode == 0;
+			}
+			catch (Exception ex)
+			{
+				DivinityApp.Log($"Failed to run '{tool}': {ex.Message}");
+				return false;
+			}
+		}
+
+		var opener = OperatingSystem.IsMacOS() ? "open" : "xdg-open";
+		if (isFile)
+		{
+			if (OperatingSystem.IsMacOS()) return Run("open", 0, "-R", fullPath);
+			var uri = new Uri(fullPath).AbsoluteUri; // percent-encoded, so it's safe inside a double-quoted GVariant string
+			if (Run("gdbus", 3000, "call", "--session", "--dest", "org.freedesktop.FileManager1", "--object-path", "/org/freedesktop/FileManager1",
+				"--method", "org.freedesktop.FileManager1.ShowItems", $"[\"{uri}\"]", "")) return true;
+			fullPath = System.IO.Path.GetDirectoryName(fullPath)!;
+		}
+		return Run(opener, 0, fullPath);
 	}
 
 	[ReactiveCommand(CanExecute = nameof(_canExecuteCommandsObs))]
