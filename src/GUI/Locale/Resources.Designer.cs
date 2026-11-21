@@ -1739,6 +1739,24 @@ namespace ModManager.Locale {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Mod Sync.
+        /// </summary>
+        public static string Keybinding_ToggleModSyncWindow {
+            get {
+                return ResourceManager.GetString("Keybinding_ToggleModSyncWindow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sync your mods and load order with friends: host from this PC, or join with an invite code.
+        /// </summary>
+        public static string Keybinding_ToggleModSyncWindow_ToolTip {
+            get {
+                return ResourceManager.GetString("Keybinding_ToggleModSyncWindow_ToolTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Main.
         /// </summary>
         public static string Larian_GustavDev_Name {

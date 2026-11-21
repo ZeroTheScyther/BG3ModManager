@@ -85,6 +85,7 @@ public static class AppServices
 		SplatRegistrations.RegisterLazySingleton<NxmDownloadWindowViewModel>();
 		SplatRegistrations.RegisterLazySingleton<StatsValidatorWindowViewModel>();
 		SplatRegistrations.RegisterLazySingleton<VersionGeneratorViewModel>();
+		SplatRegistrations.RegisterLazySingleton<ModSyncWindowViewModel>();
 		SplatRegistrations.RegisterLazySingleton<ExportOrderToArchiveViewModel>();
 		SplatRegistrations.RegisterLazySingleton<PakFileExplorerWindowViewModel>();
 		SplatRegistrations.RegisterLazySingleton<KeybindingsViewModel>();
@@ -111,6 +112,7 @@ public static class AppServices
 		SplatRegistrations.RegisterLazySingleton<PakFileExplorerWindow>();
 		SplatRegistrations.RegisterLazySingleton<StatsValidatorWindow>();
 		SplatRegistrations.RegisterLazySingleton<VersionGeneratorWindow>();
+		SplatRegistrations.RegisterLazySingleton<ModSyncWindow>();
 		SplatRegistrations.RegisterLazySingleton<NxmDownloadWindow>();
 		SplatRegistrations.RegisterLazySingleton<AboutWindow>();
 		SplatRegistrations.RegisterLazySingleton<NexusModsCollectionDownloadWindow>();

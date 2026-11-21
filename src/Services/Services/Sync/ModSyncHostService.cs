@@ -125,7 +125,7 @@ public sealed class ModSyncHostService : IAsyncDisposable
 			app.MapGet("/api/v1/manifest", (HttpContext ctx) =>
 			{
 				var manifest = _snapshot.Manifest;
-				Report($"{ctx.Connection.RemoteIpAddress} fetched the mod list ({manifest.Files.Count} files).");
+				Report($"{ClientIp(ctx)} fetched the mod list ({manifest.Files.Count} files).");
 				return Results.Json(manifest);
 			});
 			app.MapGet("/api/v1/files/{sha}", (string sha, HttpContext ctx) =>
@@ -139,7 +139,7 @@ public sealed class ModSyncHostService : IAsyncDisposable
 				}
 				if (!ctx.Request.Headers.Range.Any() || ctx.Request.Headers.Range.ToString().StartsWith("bytes=0-"))
 				{
-					Report($"{ctx.Connection.RemoteIpAddress} is downloading '{info.Name}'.");
+					Report($"{ClientIp(ctx)} is downloading '{info.Name}'.");
 				}
 				return Results.File(info.FullName, "application/octet-stream", info.Name, enableRangeProcessing: true);
 			});
@@ -185,10 +185,15 @@ public sealed class ModSyncHostService : IAsyncDisposable
 	/// <summary>Raised once router port mapping finishes (successfully or not).</summary>
 	public event Action? NatStatusChanged;
 
-	private async Task AuthorizeAsync(HttpContext ctx, Func<Task> next)
+	private static IPAddress ClientIp(HttpContext ctx)
 	{
 		var ip = ctx.Connection.RemoteIpAddress ?? IPAddress.None;
-		if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+		return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip;
+	}
+
+	private async Task AuthorizeAsync(HttpContext ctx, Func<Task> next)
+	{
+		var ip = ClientIp(ctx);
 		var window = _failures.GetOrAdd(ip, _ => new FailureWindow());
 
 		lock (window)

@@ -184,6 +184,8 @@
 
 					<Button Command="{Binding ExportOrderToArchiveAsCommand}" Content="{materialIcons:MaterialIconExt Kind=ArchiveEdit}" ToolTip.Tip="{manager:LocaleKey CommandBar_Button_ExportOrderToArchive_ToolTip}" />
 
+					<Button Command="{Binding ToggleModSyncWindowCommand}" Content="{materialIcons:MaterialIconExt Kind=AccountMultipleCheck, IconForeground=MediumSeaGreen}" ToolTip.Tip="{manager:LocaleKey Keybinding_ToggleModSyncWindow_ToolTip}" />
+
 					<Button Command="{Binding OrganizeModPaksCommand}" Content="{materialIcons:MaterialIconExt Kind=FileMove, IconForeground={StaticResource MoveModsIconForeground}}" ToolTip.Tip="{manager:LocaleKey Keybinding_OrganizeModPaks_ToolTip}" />
 				</StackPanel>
 				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">

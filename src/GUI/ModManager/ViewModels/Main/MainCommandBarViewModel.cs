@@ -120,6 +120,9 @@ public partial class MainCommandBarViewModel : ReactiveObject
 	[Keybinding(nameof(Resources.Keybinding_ToggleVersionGeneratorWindow), Key.G, KeyModifiers.Control, nameof(Resources.Keybinding_ToggleVersionGeneratorWindow_ToolTip))]
 	public RxBoolCommandUnit? ToggleVersionGeneratorWindowCommand { get; }
 
+	[Keybinding(nameof(Resources.Keybinding_ToggleModSyncWindow), Key.M, KeyModifiers.Control | KeyModifiers.Alt, nameof(Resources.Keybinding_ToggleModSyncWindow_ToolTip))]
+	public RxBoolCommandUnit? ToggleModSyncWindowCommand { get; }
+
 	[Keybinding(nameof(Resources.Keybinding_ToggleAboutWindow), Key.F1, KeyModifiers.None)]
 	public RxBoolCommandUnit? ToggleAboutWindowCommand { get; }
 
@@ -471,6 +474,7 @@ public partial class MainCommandBarViewModel : ReactiveObject
 		interactions.ViewModFiles.RegisterHandler(HandleViewModFiles);
 
 		ToggleVersionGeneratorWindowCommand = ReactiveCommand.Create(ToggleWindow<VersionGeneratorWindow>, canExecuteCommands);
+		ToggleModSyncWindowCommand = ReactiveCommand.Create(ToggleWindow<ModSyncWindow>, canExecuteCommands);
 		ToggleStatsValidatorWindowCommand = ReactiveCommand.Create(ToggleWindow<StatsValidatorWindow>, canExecuteCommands);
 		ToggleSettingsWindowCommand = ReactiveCommand.Create(ToggleWindow<SettingsWindow>, canExecuteCommands);
 		ToggleAboutWindowCommand = ReactiveCommand.Create(ToggleWindow<AboutWindow>, canExecuteCommands);
@@ -908,6 +912,7 @@ public partial class MainCommandBarViewModel : ReactiveObject
 			new MenuEntry(nameof(Resources.TopMenu_View), useLocalization: true, useAccessShortcut:true){
 				Children = [
 					MenuEntry.FromKeybinding(ToggleUpdatesViewCommand, nameof(ToggleUpdatesViewCommand), keybindings).WithIcon(MaterialIconKind.Update, "#00FF00"),
+					MenuEntry.FromKeybinding(ToggleModSyncWindowCommand, nameof(ToggleModSyncWindowCommand), keybindings).WithIcon(MaterialIconKind.AccountMultipleCheck, "#4CAF50"),
 					MenuEntry.FromKeybinding(ToggleVersionGeneratorWindowCommand, nameof(ToggleVersionGeneratorWindowCommand), keybindings).WithIcon(MaterialIconKind.GeneratorPortable, "#78D9FF"),
 					MenuEntry.FromKeybinding(TogglePakFileExplorerWindowCommand, nameof(TogglePakFileExplorerWindowCommand), keybindings).WithIcon(MaterialIconKind.Files, "#A800FF"),
 					MenuEntry.FromKeybinding(ToggleStatsValidatorWindowCommand, nameof(ToggleStatsValidatorWindowCommand), keybindings).WithIcon(MaterialIconKind.FileChart, "#FF7800"),

@@ -833,6 +833,12 @@ You have version {2} installed.</value>
 	<data name="Keybinding_ToggleVersionGeneratorWindow_ToolTip" xml:space="preserve">
 		<value>A tool for mod authors to generate version numbers for a mod's meta.lsx</value>
 	</data>
+	<data name="Keybinding_ToggleModSyncWindow" xml:space="preserve">
+		<value>Mod Sync</value>
+	</data>
+	<data name="Keybinding_ToggleModSyncWindow_ToolTip" xml:space="preserve">
+		<value>Sync your mods and load order with friends: host from this PC, or join with an invite code</value>
+	</data>
 	<data name="Keybinding_ToggleAboutWindow" xml:space="preserve">
 		<value>About</value>
 	</data>
