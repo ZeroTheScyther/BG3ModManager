@@ -518,6 +518,23 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			JoinStatus = summary + " Reloading mods...";
 			await ReloadModsAsync(token);
 
+			// Make sure the manager actually picked up what we downloaded. On Windows, antivirus scans of freshly written
+			// paks can briefly lock them, so the first reload may silently skip them; retry a few times before giving up.
+			var expected = plan.Downloads.Select(d => d.Remote!.ModUuid).Where(u => Guid.TryParse(u, out _)).Select(u => u!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+			for (var attempt = 1; attempt <= 3 && expected.Any(u => !_manager.ModExists(u)); attempt++)
+			{
+				var notYet = plan.Downloads.Where(d => d.Remote!.ModUuid != null && expected.Contains(d.Remote.ModUuid) && !_manager.ModExists(d.Remote.ModUuid)).Select(d => d.DisplayName).ToList();
+				DivinityApp.Log($"Mod sync: {notYet.Count} downloaded mod(s) not loaded yet ({string.Join(", ", notYet)}); reloading again (attempt {attempt}/3).");
+				JoinStatus = $"{summary} Waiting for {notYet.Count} new mod(s) to become readable (attempt {attempt}/3)...";
+				await Task.Delay(TimeSpan.FromSeconds(2 * attempt), token);
+				await ReloadModsAsync(token);
+			}
+			var stillMissing = plan.Downloads.Where(d => d.Remote!.ModUuid != null && expected.Contains(d.Remote.ModUuid) && !_manager.ModExists(d.Remote.ModUuid)).Select(d => d.Remote!.FileName).ToList();
+			if (stillMissing.Count > 0)
+			{
+				summary += $" Warning: the mod list couldn't read {string.Join(", ", stillMissing)} yet (the files are in your Mods folder). Click Refresh in the main window, then apply the 'Synced from' order.";
+			}
+
 			if (ApplyLoadOrder)
 			{
 				var (applied, missing) = ApplyHostLoadOrder(plan.Manifest);
