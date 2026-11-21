@@ -649,7 +649,7 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		return result;
 	}
 
-	private string GetOrdersDirectory()
+	public string GetOrdersDirectory()
 	{
 		var loadOrderDirectory = Settings.LoadOrderPath;
 		if (!loadOrderDirectory.IsExistingDirectory())

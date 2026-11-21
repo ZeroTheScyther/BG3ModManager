@@ -13,6 +13,8 @@ using System.Reflection;
 namespace ModManager;
 public partial class App : Application
 {
+	private System.Runtime.InteropServices.PosixSignalRegistration? _sigterm;
+
 	public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
 	public IClassicDesktopStyleApplicationLifetime? DesktopLifetime => ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
@@ -49,6 +51,19 @@ public partial class App : Application
 
 			var mainWindow = new MainWindow();
 			desktop.MainWindow = mainWindow;
+			// Tool windows (Mod Sync, Settings, ...) hide instead of closing, so with the default OnLastWindowClose the
+			// process kept running invisibly (still hosting mod sync) after the user closed the main window.
+			desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+			// Avalonia ignores SIGTERM (logout, `kill`); shut down properly so Exit handlers run (e.g. removing the
+			// router port mapping when hosting).
+			if (!OperatingSystem.IsWindows())
+			{
+				_sigterm = System.Runtime.InteropServices.PosixSignalRegistration.Create(System.Runtime.InteropServices.PosixSignal.SIGTERM, ctx =>
+				{
+					ctx.Cancel = true;
+					Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown());
+				});
+			}
 			AppLocator.CurrentMutable.RegisterConstant(mainWindow);
 			mainWindow.DataContext = ViewModelLocator.Main;
 

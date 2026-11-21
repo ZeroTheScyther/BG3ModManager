@@ -4,6 +4,7 @@ using ModManager.Models.Mod;
 using ModManager.Models.Mod.Order;
 using ModManager.Services;
 using ModManager.Services.Sync;
+using ModManager.Util;
 
 using System.Collections.ObjectModel;
 using System.Reactive.Threading.Tasks;
@@ -41,6 +42,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	private CancellationTokenSource? _syncCts;
 	private ModSyncConnection? _connection;
 	private SyncPlan? _plan;
+	private volatile bool _scanning;
 
 	private static string DataFolder => DivinityApp.GetAppDirectory("Data", "ModSync");
 	private static string ClientStateFile => IOPath.Join(DataFolder, "client.json");
@@ -164,6 +166,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			.Throttle(TimeSpan.FromSeconds(2))
 			.ObserveOn(RxApp.MainThreadScheduler)
 			.Where(_ => IsHosting)
+			.Select(_ => Unit.Default) // RefreshSharedCommand takes no parameter; passing the change set crashes the app
 			.InvokeCommand(RefreshSharedCommand);
 
 		// Stop hosting on exit so the router port mapping is removed rather than left open until its lease expires.
@@ -374,18 +377,26 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 
 		List<LocalModFile> local = [];
 		if (!IODirectory.Exists(modsDir)) return local;
+		_scanning = true;
+		try
+		{
 		var paks = IODirectory.EnumerateFiles(modsDir, "*.pak").ToList();
 		for (var i = 0; i < paks.Count; i++)
 		{
 			token.ThrowIfCancellationRequested();
 			var path = IOPath.GetFullPath(paks[i]);
 			var idx = i + 1;
-			RxApp.MainThreadScheduler.Schedule(() => JoinStatus = $"Checking your mods ({idx}/{paks.Count})...");
+			RxApp.MainThreadScheduler.Schedule(() => { if (_scanning) JoinStatus = $"Checking your mods ({idx}/{paks.Count})..."; });
 			var sha = await hashes.GetSha256Async(path, token);
 			local.Add(new LocalModFile(path, sha, new System.IO.FileInfo(path).Length, uuidByPath.GetValueOrDefault(path)));
 		}
 		hashes.Save();
 		return local;
+		}
+		finally
+		{
+			_scanning = false;
+		}
 	}
 
 	private async Task ConnectAsync()
@@ -494,12 +505,16 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			_plan = plan;
 			ShowPlan(plan);
 
+			// Snapshot the friend's own setup first, so they can switch back from the order dropdown.
+			JoinStatus = "Saving your current load order...";
+			var snapshot = await SnapshotCurrentSetupAsync(plan.Manifest, IOPath.Join(syncFolder, "Backups"), token);
+
 			JoinStatus = "Downloading...";
 			var result = await Task.Run(() => ModSyncExecutor.ExecuteAsync(_connection, plan, modsDir, IOPath.Join(syncFolder, "Downloads"), IOPath.Join(syncFolder, "Backups"),
 				MoveExtrasToBackup, core.Hashes, progress, token), token);
 			LastBackupFolder = result.BackupFolder;
 
-			var summary = $"Synced: {result.Downloaded} file(s) downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} old file(s) moved to the backup folder." : ".");
+			var summary = $"Your previous load order was saved as '{snapshot}'. Synced: {result.Downloaded} file(s) downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} old file(s) moved to the backup folder." : ".");
 			JoinStatus = summary + " Reloading mods...";
 			await ReloadModsAsync(token);
 
@@ -534,6 +549,47 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		{
 			IsSyncing = false;
 		}
+	}
+
+	/// <summary>
+	/// Saves the currently active mods as a named order ("Before sync from X, date") in the Orders folder and copies the
+	/// game's modsettings.lsx into the sync backup folder. Throws if the order can't be saved, so sync never overwrites
+	/// a setup the user can't get back to.
+	/// </summary>
+	private async Task<string> SnapshotCurrentSetupAsync(SyncManifest manifest, string backupRoot, CancellationToken token)
+	{
+		var modOrder = ViewModelLocator.ModOrder;
+		var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm");
+		var name = $"Before sync from {(manifest.HostName.Length > 0 ? manifest.HostName : "host")} {stamp}";
+		var order = new ModOrder { Name = name };
+
+		void Visit(IEnumerable<IModEntry> entries)
+		{
+			foreach (var entry in entries)
+			{
+				if (entry is ModEntry { Data: ModData m }) { if (Guid.TryParse(m.UUID, out _)) order.Add(m); }
+				else if (entry.Children != null) Visit(entry.Children);
+			}
+		}
+		Visit(modOrder.ActiveMods);
+
+		var ordersDir = modOrder.GetOrdersDirectory();
+		IODirectory.CreateDirectory(ordersDir);
+		order.FilePath = IOPath.Join(ordersDir, ModDataLoader.MakeSafeFilename(name + ".json", '_'));
+		if (!await ModDataLoader.ExportLoadOrderToFileAsync(order.FilePath, order, token))
+		{
+			throw new InvalidOperationException($"Couldn't save your current load order to '{order.FilePath}', so nothing was changed.");
+		}
+
+		var profileDir = modOrder.SelectedProfile?.FilePath;
+		var modSettings = profileDir.IsValid() ? IOPath.Join(profileDir!, "modsettings.lsx") : null;
+		if (modSettings != null && IOFile.Exists(modSettings))
+		{
+			IODirectory.CreateDirectory(backupRoot);
+			IOFile.Copy(modSettings, IOPath.Join(backupRoot, $"modsettings before sync {stamp}.lsx"), true);
+		}
+		DivinityApp.Log($"Saved pre-sync load order '{name}' ({order.Entries.Count} mods) to '{order.FilePath}'.");
+		return name;
 	}
 
 	private static async Task ReloadModsAsync(CancellationToken token)
