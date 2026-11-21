@@ -1,4 +1,4 @@
-﻿using LSLib.LS;
+using LSLib.LS;
 using LSLib.LS.Pak;
 
 using ModManager.Extensions;
@@ -78,10 +78,16 @@ public partial class DirectoryPakParser(string?[] directoryPaths, EnumerationOpt
 		"Voice.pak"
 	];
 
+	// Larian ships hotfixes as extra paks in Data (e.g. Patch8_HotFix9.pak). They're part of the base game, loaded by the
+	// game itself, have no meta.lsx, and must never appear in the mod list or be written to modsettings.lsx.
+	[GeneratedRegex(@"^Patch\d+_HotFix\d+\.pak$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex LarianHotfixPakRegex();
+
 	private bool CanProcessPak(string path, HashSet<string> packageBlacklist)
 	{
 		var baseName = _fs.Path.GetFileName(path);
 		if (!packageBlacklist.Contains(baseName)
+			&& !LarianHotfixPakRegex().IsMatch(baseName)
 			// Don't load 2nd, 3rd, ... parts of a multi-part archive
 			&& !ModPathVisitor.archivePartRe.IsMatch(baseName))
 		{
