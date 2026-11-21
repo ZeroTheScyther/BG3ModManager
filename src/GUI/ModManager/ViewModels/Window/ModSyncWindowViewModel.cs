@@ -242,7 +242,8 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			{
 				if (entry is ModEntry { Data: ModData m })
 				{
-					if (m.UUID.IsValid()) order.Add(new SyncOrderEntry(m.UUID, m.DisplayName ?? m.Name ?? m.UUID));
+					// Skip override paks without meta.lsx (placeholder, non-GUID UUIDs like "Patch8_HotFix9"); they never belong in a load order.
+					if (Guid.TryParse(m.UUID, out _)) order.Add(new SyncOrderEntry(m.UUID, m.DisplayName ?? m.Name ?? m.UUID));
 					if (IsSharable(m)) files.Add(new SharedModFile(m.FilePath!, m.UUID, m.DisplayName ?? m.Name, m.Version?.ToString()));
 				}
 				else if (entry.Children != null)

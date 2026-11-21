@@ -95,6 +95,14 @@ public class ModSettingsExportService(IFileSystemService fileSystemService) : IM
 
 		foreach (var mod in orderList)
 		{
+			// Only real modules have GUIDs. Override paks without a meta.lsx (e.g. Larian's Data/Patch8_HotFix9.pak) get a
+			// file-name placeholder UUID; writing that into the guid-typed UUID attribute produces an invalid modsettings.lsx,
+			// which the game discards (resetting the whole load order to vanilla). The game loads those paks on its own.
+			if (mod.UUID.IsValid() && !Guid.TryParse(mod.UUID, out _))
+			{
+				DivinityApp.Log($"Not exporting '{mod.Name}' to modsettings.lsx: '{mod.UUID}' isn't a module UUID (override pak without meta.lsx).");
+				continue;
+			}
 			if (mod.UUID.IsValid())
 			{
 				//Use Export to support lists with categories/things that don't need exporting
