@@ -13,8 +13,7 @@
 		<ProjectReference Include="..\..\..\External\NexusModsNET\NexusModsNET\NexusModsNET.csproj" />
 		<ProjectReference Include="..\..\..\External\modio.net\Modio\Modio.csproj" />
 		<ProjectReference Include="..\..\..\External\SukiUI\SukiUI\SukiUI.csproj" ExcludeAssets="contentFiles" />
-		<ProjectReference Include="..\..\..\External\Avalonia.Labs\src\Avalonia.Labs.Controls\Avalonia.Labs.Controls.csproj" />
-		<ProjectReference Include="..\..\..\External\Avalonia.Labs\src\Avalonia.Labs.Gif\Avalonia.Labs.Gif.csproj" />
+
 		<ProjectReference Include="..\..\Core\Core.csproj" />
 		<ProjectReference Include="..\..\Services\Services.csproj" />
 		<ProjectReference Include="..\..\SourceGenerator\SourceGenerator.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" OutputItemType="Analyzer" />
@@ -30,6 +29,9 @@
 		<PackageReference Include="Xaml.Behaviors.Avalonia" />
 		<PackageReference Include="Xaml.Behaviors.Interactions" />
 		<PackageReference Include="Material.Icons.Avalonia" />
+		<!-- Avalonia.Labs from NuGet (was a source submodule of a fork pinned to Avalonia 12 preview) -->
+		<PackageReference Include="Avalonia.Labs.Controls" />
+		<PackageReference Include="Avalonia.Labs.Gif" />
 		<PackageReference Include="DynamicData" />
 		<PackageReference Include="Humanizer.Core" />
 		<PackageReference Include="ReactiveUI" />

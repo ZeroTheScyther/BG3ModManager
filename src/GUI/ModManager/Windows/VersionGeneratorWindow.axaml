@@ -25,75 +25,76 @@
 		</Style>
 	</Window.Styles>
 	<VisualLayerManager Name="PART_VisualLayerManager" IsHitTestVisible="True">
-		<VisualLayerManager.ChromeOverlayLayer>
-			<suki:SukiToastHost Name="ToastHost" MaxToasts="4" Position="BottomLeft" />
-		</VisualLayerManager.ChromeOverlayLayer>
+		<!--  Avalonia 12 removed VisualLayerManager.ChromeOverlayLayer; overlay hosts sit on top of the content instead.  -->
 		<Panel>
-			<suki:SukiBackground IsHitTestVisible="False" />
-			<Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
-				<Grid.RowDefinitions>
-					<RowDefinition Height="Auto" />
-					<RowDefinition Height="Auto" />
-					<RowDefinition Height="Auto" />
-					<RowDefinition Height="Auto" />
-				</Grid.RowDefinitions>
-				<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
-					<StackPanel Margin="2">
-						<TextBlock Padding="2" Text="Major" TextAlignment="Center" />
-						<NumericUpDown Name="MajorUpDown"
-						    Maximum="127"
-						    Minimum="0"
-						    Value="{Binding Version.Major}" />
-					</StackPanel>
-					<StackPanel Margin="2">
-						<TextBlock Padding="2" Text="Minor" TextAlignment="Center" />
-						<NumericUpDown Name="MinorUpDown"
-						    Maximum="127"
-						    Minimum="0"
-						    Value="{Binding Version.Minor}" />
-					</StackPanel>
-					<StackPanel Margin="2">
-						<TextBlock Padding="2" Text="Revision" TextAlignment="Center" />
-						<NumericUpDown Name="RevisionUpDown"
-						    Maximum="65536"
-						    Minimum="0"
-						    Value="{Binding Version.Revision}" />
-					</StackPanel>
-					<StackPanel Margin="2">
-						<TextBlock Padding="2" Text="Build" TextAlignment="Center" />
-						<NumericUpDown Name="BuildUpDown"
-						    Maximum="2147483647"
-						    Minimum="0"
-						    Value="{Binding Version.Build}" />
-					</StackPanel>
-				</StackPanel>
-				<Grid Grid.Row="1"
-				    Margin="24"
-				    HorizontalAlignment="Stretch"
-				    VerticalAlignment="Center">
+			<Panel>
+				<suki:SukiBackground IsHitTestVisible="False" />
+				<Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
 					<Grid.RowDefinitions>
 						<RowDefinition Height="Auto" />
 						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
 					</Grid.RowDefinitions>
-					<TextBlock Padding="8"
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+						<StackPanel Margin="2">
+							<TextBlock Padding="2" Text="Major" TextAlignment="Center" />
+							<NumericUpDown Name="MajorUpDown"
+							    Maximum="127"
+							    Minimum="0"
+							    Value="{Binding Version.Major}" />
+						</StackPanel>
+						<StackPanel Margin="2">
+							<TextBlock Padding="2" Text="Minor" TextAlignment="Center" />
+							<NumericUpDown Name="MinorUpDown"
+							    Maximum="127"
+							    Minimum="0"
+							    Value="{Binding Version.Minor}" />
+						</StackPanel>
+						<StackPanel Margin="2">
+							<TextBlock Padding="2" Text="Revision" TextAlignment="Center" />
+							<NumericUpDown Name="RevisionUpDown"
+							    Maximum="65536"
+							    Minimum="0"
+							    Value="{Binding Version.Revision}" />
+						</StackPanel>
+						<StackPanel Margin="2">
+							<TextBlock Padding="2" Text="Build" TextAlignment="Center" />
+							<NumericUpDown Name="BuildUpDown"
+							    Maximum="2147483647"
+							    Minimum="0"
+							    Value="{Binding Version.Build}" />
+						</StackPanel>
+					</StackPanel>
+					<Grid Grid.Row="1"
+					    Margin="24"
+					    HorizontalAlignment="Stretch"
+					    VerticalAlignment="Center">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto" />
+							<RowDefinition Height="Auto" />
+						</Grid.RowDefinitions>
+						<TextBlock Padding="8"
+						    VerticalAlignment="Center"
+						    Text="Version Number"
+						    TextAlignment="Center" />
+						<controls:EnhancedTextBox Name="VersionNumberTextBox"
+						    Grid.Row="1"
+						    Width="248"
+						    Margin="48,0"
+						    Text="{Binding Text, UpdateSourceTrigger=LostFocus}" />
+					</Grid>
+					<StackPanel Grid.Row="2"
+					    Margin="10"
+					    HorizontalAlignment="Center"
 					    VerticalAlignment="Center"
-					    Text="Version Number"
-					    TextAlignment="Center" />
-					<controls:EnhancedTextBox Name="VersionNumberTextBox"
-					    Grid.Row="1"
-					    Width="248"
-					    Margin="48,0"
-					    Text="{Binding Text, UpdateSourceTrigger=LostFocus}" />
+					    Orientation="Horizontal">
+						<Button Name="CopyButton" Command="{Binding CopyCommand}" Content="Copy" />
+						<Button Name="ResetButton" Command="{Binding ResetCommand}" Content="Reset" />
+					</StackPanel>
 				</Grid>
-				<StackPanel Grid.Row="2"
-				    Margin="10"
-				    HorizontalAlignment="Center"
-				    VerticalAlignment="Center"
-				    Orientation="Horizontal">
-					<Button Name="CopyButton" Command="{Binding CopyCommand}" Content="Copy" />
-					<Button Name="ResetButton" Command="{Binding ResetCommand}" Content="Reset" />
-				</StackPanel>
-			</Grid>
+			</Panel>
+				<suki:SukiToastHost Name="ToastHost" MaxToasts="4" Position="BottomLeft" />
 		</Panel>
 	</VisualLayerManager>
 </Window>

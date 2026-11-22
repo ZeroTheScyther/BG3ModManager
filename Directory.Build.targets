@@ -8,15 +8,6 @@
 		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 	</PropertyGroup>
 
-	<!--
-	The TreeDataGrid submodule pins Microsoft.SourceLink.GitHub 10.0.103, pulling in Microsoft.Build.Tasks.Git
-	10.0.103 (GHSA-23fw-v26w-5fgq, fixed in 10.0.111). It is a build-time-only tool and nothing from it ships,
-	but the submodule sets TreatWarningsAsErrors, so the audit warning fails restore. Keep it visible as a
-	warning for that project only; every other project still treats vulnerabilities as errors.
-	-->
-	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Avalonia.Controls.TreeDataGrid'">
-		<WarningsNotAsErrors>$(WarningsNotAsErrors);NU1902</WarningsNotAsErrors>
-	</PropertyGroup>
 
 	<!--
 	LSLibStats intentionally excludes its own GplexBuffers.cs / ShiftReduceParserCode.cs so it uses the
@@ -33,4 +24,20 @@
 			<Compile Remove="GplexBuffers.cs;ShiftReduceParserCode.cs" />
 		</ItemGroup>
 	</Target>
+
+	<!--
+	Avalonia version for the whole build. 12.0.0-preview1's X11 backend had no XDND support (no drag and drop from Linux
+	file managers); stable 12.1.x does. SukiUI (upstream, central package management) builds against 12.1.1 and
+	MarkdownViewer.Core hard-codes 12.0.0-preview1; align both. Properties set here win over earlier ones (items are
+	evaluated after all properties); PackageReference Update covers projects without central package management.
+	-->
+	<PropertyGroup>
+		<AvaloniaVersion>12.1.6</AvaloniaVersion>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(ManagePackageVersionsCentrally)' != 'true'">
+		<PackageReference Update="Avalonia" Version="$(AvaloniaVersion)" />
+		<PackageReference Update="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+		<PackageReference Update="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+		<PackageReference Update="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+	</ItemGroup>
 </Project>

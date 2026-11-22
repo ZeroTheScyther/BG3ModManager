@@ -56,7 +56,9 @@
 
 	</UserControl.Styles>
 	<Grid RowDefinitions="auto,*,auto">
-		<rxui:ViewModelViewHost Name="CommandBar" ViewModel="{x:Static mm:ViewModelLocator.CommandBar}" />
+		<!--  No page transition: the command bar view is a singleton, and Avalonia 12's TransitioningContentControl briefly needs old and
+		      new content at once, so re-showing the same instance (e.g. after a refresh) left the toolbar blank.  -->
+		<rxui:ViewModelViewHost Name="CommandBar" PageTransition="{x:Null}" ViewModel="{x:Static mm:ViewModelLocator.CommandBar}" />
 
 		<Grid Grid.Row="1" Margin="4,0" ColumnDefinitions="*,auto,*">
 			<sukiControls:GlassCard IsOpaque="True">

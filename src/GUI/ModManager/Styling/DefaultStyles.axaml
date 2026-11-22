@@ -173,10 +173,8 @@
 		<Setter Property="TextElement.Foreground" Value="{DynamicResource SukiText}" />
 	</Style>
 
-	<Style Selector="suki|CircleProgressBar">
-		<Setter Property="ArcBackground" Value="{DynamicResource ProgressionBarBackgroundColor}" />
-		<Setter Property="ArcForeground" Value="{DynamicResource ProgressionBarForegroundColor}" />
-	</Style>
+	<!--  ArcBackground/ArcForeground came from LaughingLeader's SukiUI fork; upstream SukiUI (Avalonia 12) draws the arc with the
+	      theme's SukiGlassCardBackground / SukiPrimaryColor instead.  -->
 
 	<!--  This fixes an issue where setting the Foreground of a MaterialIcon directly makes it not change color on hover.  -->
 	<Style Selector="Button">

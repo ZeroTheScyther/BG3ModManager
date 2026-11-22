@@ -203,7 +203,7 @@ public partial class ModListView : ReactiveUserControl<ModListViewModel>
 			var data = new DragDropDataTransfer() { Data = info };
 			try
 			{
-				DragDrop.DoDragDropAsync(e.Inner, data, e.AllowedEffects);
+				DragDrop.DoDragDropAsync(e.PressedEvent, data, e.AllowedEffects);
 			}
 			catch (Exception ex)
 			{

@@ -26,16 +26,17 @@
 	</Window.LogoContent>-->
 
 	<VisualLayerManager Name="PART_VisualLayerManager" IsHitTestVisible="True">
-		<VisualLayerManager.ChromeOverlayLayer>
-			<suki:SukiToastHost Name="ToastHost" MaxToasts="4" Position="BottomLeft" />
-			<suki:SukiDialogHost Name="DialogHost" />
-		</VisualLayerManager.ChromeOverlayLayer>
+		<!--  Avalonia 12 removed VisualLayerManager.ChromeOverlayLayer; overlay hosts sit on top of the content instead.  -->
 		<Panel>
-			<suki:SukiBackground IsHitTestVisible="False" />
-			<rxui:RoutedViewHost Name="ViewHost"
-				HorizontalContentAlignment="Stretch"
-				VerticalContentAlignment="Stretch"
-				Router="{Binding Router}" />
+			<Panel>
+				<suki:SukiBackground IsHitTestVisible="False" />
+				<rxui:RoutedViewHost Name="ViewHost"
+					HorizontalContentAlignment="Stretch"
+					VerticalContentAlignment="Stretch"
+					Router="{Binding Router}" />
+			</Panel>
+				<suki:SukiToastHost Name="ToastHost" MaxToasts="4" Position="BottomLeft" />
+				<suki:SukiDialogHost Name="DialogHost" />
 		</Panel>
 	</VisualLayerManager>
 </Window>

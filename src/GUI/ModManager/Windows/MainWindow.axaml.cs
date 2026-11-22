@@ -177,9 +177,34 @@ public partial class MainWindow : ReactiveWindow<MainWindowViewModel>
 		context.SetOutput(true);
 	}
 
+	/// <summary>
+	/// Runs the command bound to a pressed hotkey. The hotkeys are registered in AppKeysService (generated from the
+	/// [Keybinding] attributes on MainCommandBarViewModel), but nothing listened for key presses, so no shortcut worked.
+	/// Bubbling + skipping handled events means focused controls keep their own keys (TextBox copy/paste/delete,
+	/// TreeDataGrid arrow navigation) and only otherwise-unused key presses reach the hotkeys.
+	/// </summary>
+	private void OnHotkeyKeyDown(object? sender, KeyEventArgs e)
+	{
+		if (e.Handled || e.Key == Key.None) return;
+		// Plain or Shift+key presses while typing belong to the text box, even if it didn't mark them handled.
+		if (e.Source is TextBox && (e.KeyModifiers & ~KeyModifiers.Shift) == KeyModifiers.None) return;
+
+		foreach (var hotkey in AppServices.Keybindings.Hotkeys.Items)
+		{
+			if (!hotkey.Enabled || hotkey.Key != e.Key || hotkey.Modifiers != e.KeyModifiers) continue;
+			if (hotkey.Command is System.Windows.Input.ICommand command && command.CanExecute(null))
+			{
+				command.Execute(null);
+				e.Handled = true;
+			}
+			return;
+		}
+	}
+
 	public MainWindow()
 	{
 		InitializeComponent();
+		AddHandler(KeyDownEvent, OnHotkeyKeyDown, Avalonia.Interactivity.RoutingStrategies.Bubble);
 
 		_toastManager = new();
 		_dialogManager = new();
