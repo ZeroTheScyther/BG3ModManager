@@ -962,23 +962,22 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 
 	private async Task DeleteOrder(ModOrder order)
 	{
-		if (order.IsModSettings) return; // "Current" is the game's own modsettings.lsx; never delete it
-		var data = new ShowMessageBoxRequest("Confirm Order Deletion",
-			$"Delete load order '{order.Name}'?" + (order.FilePath.IsExistingFile() ? " Its file will be moved to the trash / recycle bin." : ""),
+		if (order.IsModSettings) return; // "Current" is the game's own modsettings.lsx (button is disabled for it)
+		var data = new ShowMessageBoxRequest("Delete Load Order", $"Delete '{order.Name}'?",
 			InteractionMessageBoxType.Warning | InteractionMessageBoxType.YesNo);
 		var result = await AppServices.Interactions.ShowMessageBox.Handle(data);
 		if (result)
 		{
 			if (order.FilePath.IsExistingFile() && !RecycleBinHelper.DeleteFile(order.FilePath, false, false))
 			{
-				AppServices.Commands.ShowAlert($"Couldn't move '{order.FilePath}' to the trash, so the order was kept.", AlertType.Danger, 25);
+				AppServices.Commands.ShowAlert($"Couldn't delete '{order.Name}'.", AlertType.Danger, 10);
 				return;
 			}
 			// Remove from both lists: ModOrderList is rebuilt from ExternalModOrders, so removing only from the former
 			// made deleted orders reappear on the next rebuild.
 			ExternalModOrders.Remove(order);
 			BuildModOrderList(SelectedProfile!, 0);
-			AppServices.Commands.ShowAlert($"Deleted load order '{order.Name}'", AlertType.Warning, 10);
+			AppServices.Commands.ShowAlert($"Deleted '{order.Name}'", AlertType.Success, 5);
 		}
 	}
 
@@ -1275,7 +1274,7 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		var suggested = "New Order";
 		for (var i = 2; _fs.File.Exists(GetOrderFilePath(suggested)); i++) suggested = $"New Order {i}";
 
-		var request = new ShowMessageBoxRequest("New Load Order", "Name for the new load order. It starts as a copy of your current active mods.", InteractionMessageBoxType.Input, suggested);
+		var request = new ShowMessageBoxRequest("New Load Order", "Name:", InteractionMessageBoxType.Input, suggested);
 		var result = await AppServices.Interactions.ShowMessageBox.Handle(request);
 		var name = result.Input?.Trim();
 		if (!result.Result || !name.IsValid()) return;
@@ -1283,7 +1282,7 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		var path = GetOrderFilePath(name!);
 		if (_fs.File.Exists(path) || ExternalModOrders.Any(x => _fs.PathEquals(x.FilePath, path)))
 		{
-			AppServices.Commands.ShowAlert($"A load order named '{name}' already exists.", AlertType.Warning, 10);
+			AppServices.Commands.ShowAlert($"'{name}' already exists.", AlertType.Warning, 5);
 			return;
 		}
 
@@ -1295,12 +1294,12 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		_fs.Directory.CreateDirectory(_fs.Path.GetDirectoryName(path)!);
 		if (!await ModDataLoader.ExportLoadOrderToFileAsync(path, order, CancellationToken.None))
 		{
-			AppServices.Commands.ShowAlert($"Failed to save new load order to '{path}'", AlertType.Danger, 20);
+			AppServices.Commands.ShowAlert($"Couldn't save '{name}'.", AlertType.Danger, 10);
 			return;
 		}
 		AddNewModOrder(order);
 		SelectOrder(order);
-		AppServices.Commands.ShowAlert($"Created load order '{order.Name}'", AlertType.Success, 8);
+		AppServices.Commands.ShowAlert($"Created '{order.Name}'", AlertType.Success, 5);
 	}
 
 	/// <summary>Selects an order in the dropdown by reference (BuildModOrderList's index can point elsewhere) and loads it.</summary>

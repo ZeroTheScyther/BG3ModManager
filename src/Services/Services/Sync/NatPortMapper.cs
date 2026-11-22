@@ -30,13 +30,13 @@ public sealed class NatPortMapper : IAsyncDisposable
 		NatUtility.DeviceFound += OnFound;
 		try
 		{
-			Status = "Searching for router (UPnP / NAT-PMP)...";
+			Status = "Searching for router...";
 			NatUtility.StartDiscovery(NatProtocol.Upnp, NatProtocol.Pmp);
 			var winner = await Task.WhenAny(found.Task, Task.Delay(discoveryTimeout, token));
 			if (winner != found.Task)
 			{
 				token.ThrowIfCancellationRequested();
-				Status = "No UPnP / NAT-PMP router found. Forward the port manually if friends connect over the internet.";
+				Status = "No UPnP router found. Forward the port manually.";
 				return false;
 			}
 			_device = found.Task.Result;
@@ -72,16 +72,16 @@ public sealed class NatPortMapper : IAsyncDisposable
 			var ext = ExternalAddress;
 			var isPublic = ext != null && !NetworkAddresses.IsPrivate(ext) && !IPAddress.Any.Equals(ext);
 			Status = isPublic
-				? $"Port {port} opened on router via {_device.NatProtocol} (public IP {ext})."
-				: $"Port {port} opened via {_device.NatProtocol}, but the router reports a private external IP ({ext?.ToString() ?? "unknown"}). You're probably behind CGNAT or a second router, so internet connections may not work. Use the VPN instead.";
+				? $"Port {port} opened on router (public IP {ext})."
+				: $"Port {port} opened, but the router has no public IP (CGNAT?). Internet connections may fail.";
 			if (!isPublic) ExternalAddress = null;
 			return true;
 		}
 		catch (Exception ex)
 		{
 			_mapping = null;
-			Status = $"Router refused the port mapping ({ex.Message}). Forward TCP port {port} manually.";
-			DivinityApp.Log(Status);
+			Status = $"Router refused port mapping. Forward TCP {port} manually.";
+			DivinityApp.Log($"{Status} ({ex.Message})");
 			return false;
 		}
 	}

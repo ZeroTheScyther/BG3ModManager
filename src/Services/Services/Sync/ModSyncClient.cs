@@ -90,19 +90,18 @@ public sealed class ModSyncConnection : IDisposable
 			errors.Add($"{entry.Address}: {Describe(done.Exception?.GetBaseException())}");
 		}
 		throw new ModSyncConnectException(
-			$"Couldn't reach {(invite.HostName.Length > 0 ? invite.HostName : "the host")} at any address in the invite:\n  " + string.Join("\n  ", errors) +
-			"\n\nCheck that hosting is running on their end, that you're connected to the VPN, or that their port is forwarded.");
+			$"Couldn't reach {(invite.HostName.Length > 0 ? invite.HostName : "the host")}:\n  " + string.Join("\n  ", errors));
 	}
 
 	private static string Describe(Exception? ex) => ex switch
 	{
 		ModSyncConnectException m => m.Message,
-		HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } => "invite code was rejected (the host may have regenerated it)",
-		HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => "temporarily blocked after too many failed attempts",
-		HttpRequestException { InnerException: System.Security.Authentication.AuthenticationException } => "the host's identity didn't match the invite (wrong PC, or the host reset its identity)",
+		HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } => "invite code rejected",
+		HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => "blocked (too many attempts)",
+		HttpRequestException { InnerException: System.Security.Authentication.AuthenticationException } => "host identity mismatch",
 		HttpRequestException h when h.InnerException is System.Net.Sockets.SocketException se => se.SocketErrorCode switch
 		{
-			System.Net.Sockets.SocketError.ConnectionRefused => "connection refused (hosting not running?)",
+			System.Net.Sockets.SocketError.ConnectionRefused => "not hosting",
 			System.Net.Sockets.SocketError.TimedOut or System.Net.Sockets.SocketError.HostUnreachable or System.Net.Sockets.SocketError.NetworkUnreachable => "unreachable",
 			_ => se.Message,
 		},

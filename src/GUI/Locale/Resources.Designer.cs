@@ -1748,7 +1748,7 @@ namespace ModManager.Locale {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sync your mods and load order with friends: host from this PC, or join with an invite code.
+        ///   Looks up a localized string similar to Sync mods with friends.
         /// </summary>
         public static string Keybinding_ToggleModSyncWindow_ToolTip {
             get {

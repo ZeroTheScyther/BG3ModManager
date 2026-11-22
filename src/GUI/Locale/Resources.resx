@@ -837,7 +837,7 @@ You have version {2} installed.</value>
 		<value>Mod Sync</value>
 	</data>
 	<data name="Keybinding_ToggleModSyncWindow_ToolTip" xml:space="preserve">
-		<value>Sync your mods and load order with friends: host from this PC, or join with an invite code</value>
+		<value>Sync mods with friends</value>
 	</data>
 	<data name="Keybinding_ToggleAboutWindow" xml:space="preserve">
 		<value>About</value>

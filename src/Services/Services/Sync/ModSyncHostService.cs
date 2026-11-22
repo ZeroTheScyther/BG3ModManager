@@ -74,7 +74,7 @@ public sealed class ModSyncHostService : IAsyncDisposable
 			if (!info.Exists) continue;
 			if (!ModSyncValidation.IsSafePakFileName(info.Name))
 			{
-				Report($"Not sharing '{info.Name}': the file name isn't valid on Windows. Rename it to share it.");
+				Report($"Skipped '{info.Name}': invalid file name on Windows.");
 				continue;
 			}
 			if (!names.Add(info.Name)) continue;
@@ -224,8 +224,8 @@ public sealed class ModSyncHostService : IAsyncDisposable
 				}
 			}
 			Report(blocked
-				? $"Blocked {ip} for 10 minutes after repeated invalid invite codes."
-				: $"Rejected a connection from {ip} (invalid or outdated invite code).");
+				? $"Blocked {ip} for 10 min (too many wrong codes)."
+				: $"Rejected {ip}: wrong invite code.");
 			await Task.Delay(500); // slow down guessing
 			ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
 			return;

@@ -183,12 +183,12 @@
 
 					<Button Command="{Binding AddNewOrderCommand}" Content="{materialIcons:MaterialIconExt Kind=Add, IconForeground=OrangeRed}" ToolTip.Tip="{manager:LocaleKey CommandBar_Button_AddNewOrder_ToolTip}" />
 
-					<Button Command="{Binding RenameOrderCommand}" Content="{materialIcons:MaterialIconExt Kind=Rename}" ToolTip.Tip="Rename the selected load order (and its file)" />
+					<Button Command="{Binding RenameOrderCommand}" Content="{materialIcons:MaterialIconExt Kind=Rename}" ToolTip.Tip="Rename the selected load order" />
 
 					<Button Command="{Binding ModOrder.DeleteOrderCommand}"
 					    CommandParameter="{Binding ModOrder.SelectedModOrder}"
 					    Content="{materialIcons:MaterialIconExt Kind=Delete, IconForeground=IndianRed}"
-					    ToolTip.Tip="Delete the selected load order (its file goes to the trash). 'Current' can't be deleted." />
+					    ToolTip.Tip="Delete the selected load order" />
 				</StackPanel>
 				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
 					<TextBlock Margin="4,0,4,0" VerticalAlignment="Center" Text="{manager:LocaleKey CommandBar_Section_Export}" />

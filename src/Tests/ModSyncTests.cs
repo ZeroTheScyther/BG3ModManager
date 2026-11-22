@@ -143,7 +143,7 @@ public sealed class ModSyncTests : BaseTest, IAsyncLifetime
 		var host = await StartHostAsync(new SharedModFile(a, "uuid-a", "Mod A", "1"));
 		var ex = await Assert.ThrowsAsync<ModSyncConnectException>(() => ModSyncConnection.ConnectAsync(LocalInvite(host, fingerprint: new string('0', 64)), TestContext.Current.CancellationToken));
 		Output.WriteLine(ex.Message);
-		Assert.Contains("identity didn't match", ex.Message);
+		Assert.Contains("identity mismatch", ex.Message);
 	}
 
 	[Fact]

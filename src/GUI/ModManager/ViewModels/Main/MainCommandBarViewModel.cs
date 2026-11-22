@@ -512,7 +512,7 @@ public partial class MainCommandBarViewModel : ReactiveObject
 			var order = modOrder.SelectedModOrder!;
 			var currentName = order.Name ?? "";
 
-			var request = new ShowMessageBoxRequest($"Rename {currentName}", "New name for this load order. Its file is renamed too.", InteractionMessageBoxType.Input, currentName);
+			var request = new ShowMessageBoxRequest("Rename Load Order", "Name:", InteractionMessageBoxType.Input, currentName);
 			var result = await AppServices.Interactions.ShowMessageBox.Handle(request);
 			var nextName = result.Input?.Trim();
 			if (!result.Result || !nextName.IsValid() || nextName == currentName) return;
@@ -524,7 +524,7 @@ public partial class MainCommandBarViewModel : ReactiveObject
 			// Never overwrite another saved order (the old code moved over it and silently dropped it).
 			if (fs.File.Exists(nextFilePath) && !fs.PathEquals(nextFilePath, order.FilePath))
 			{
-				AppServices.Commands.ShowAlert($"A load order named '{nextName}' already exists.", AlertType.Warning, 10);
+				AppServices.Commands.ShowAlert($"'{nextName}' already exists.", AlertType.Warning, 5);
 				return;
 			}
 
@@ -538,13 +538,13 @@ public partial class MainCommandBarViewModel : ReactiveObject
 				order.FilePath = nextFilePath;
 				if (!await ModDataLoader.ExportLoadOrderToFileAsync(nextFilePath, order, CancellationToken.None))
 				{
-					AppServices.Commands.ShowAlert($"Failed to save load order to '{nextFilePath}'", AlertType.Danger, 20);
+					AppServices.Commands.ShowAlert($"Couldn't save '{nextName}'.", AlertType.Danger, 10);
 					return;
 				}
 			}
 			order.Name = fs.Path.GetFileNameWithoutExtension(nextFilePath);
 			order.FilePath = nextFilePath;
-			AppServices.Commands.ShowAlert($"Renamed load order to '{order.Name}'", AlertType.Success, 10);
+			AppServices.Commands.ShowAlert($"Renamed to '{order.Name}'", AlertType.Success, 5);
 		}, canExecuteCommands.CombineLatest(canRenameOrder).AllTrue());
 
 		//TODO

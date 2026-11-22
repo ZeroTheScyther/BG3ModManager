@@ -40,7 +40,6 @@
 					<TabItem Header="Host">
 						<ScrollViewer>
 							<StackPanel Margin="8">
-								<TextBlock Classes="hint" Text="Share your active mods and load order. Friends paste your invite code into the Join tab; they download straight from this PC, and only while you're hosting." />
 
 								<StackPanel Orientation="Horizontal" Spacing="8">
 									<TextBlock VerticalAlignment="Center" Text="Port (TCP)" />
@@ -51,22 +50,21 @@
 									    Minimum="1024"
 									    Value="{Binding Port}" />
 									<CheckBox VerticalAlignment="Center"
-									    Content="Open the port on my router automatically (UPnP / NAT-PMP)"
+									    Content="Open port on router (UPnP)"
 									    IsChecked="{Binding UseNatPortMapping}"
 									    IsEnabled="{Binding !IsHosting}" />
 								</StackPanel>
 
-								<TextBlock Margin="0,8,0,0" Text="Extra addresses to include in invites (optional)" />
-								<TextBox IsEnabled="{Binding !IsHosting}" Text="{Binding ExtraAddressesText}" Watermark="e.g. your public IP or a dynamic DNS name like myhome.duckdns.org, comma separated" />
-								<TextBlock Classes="hint" Text="Use this if you forwarded the port by hand and the router didn't report your public IP, or if your IP changes and you use dynamic DNS." />
+								<TextBlock Margin="0,8,0,0" Text="Extra addresses (optional)" />
+								<TextBox IsEnabled="{Binding !IsHosting}" Text="{Binding ExtraAddressesText}" Watermark="Public IP or DNS name" />
 
 								<StackPanel Margin="0,8,0,0" Orientation="Horizontal">
 									<Button Classes="Flat Accent" Command="{Binding StartHostingCommand}" Content="Start hosting" IsVisible="{Binding !IsHosting}" />
 									<Button Command="{Binding StopHostingCommand}" Content="Stop hosting" IsVisible="{Binding IsHosting}" />
-									<Button Command="{Binding RefreshSharedCommand}" IsVisible="{Binding IsHosting}" Content="Refresh shared mods" ToolTip.Tip="The shared list updates automatically when you change your active mods; use this after replacing pak files by hand." />
+									<Button Command="{Binding RefreshSharedCommand}" IsVisible="{Binding IsHosting}" Content="Refresh" />
 								</StackPanel>
 
-								<TextBlock Margin="0,8,0,0" Text="{Binding HostStatus}" TextWrapping="Wrap" />
+								<TextBlock Margin="0,8,0,0" IsVisible="{Binding HostStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding HostStatus}" TextWrapping="Wrap" />
 								<TextBlock Classes="hint" IsVisible="{Binding NatStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding NatStatus}" />
 								<TextBlock Classes="hint" IsVisible="{Binding SharedSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding SharedSummary}" />
 
@@ -76,7 +74,7 @@
 									    PasswordChar="•"
 									    RevealPassword="{Binding #RevealInvite.IsChecked}"
 									    Text="{Binding InviteCode}"
-									    Watermark="Start hosting to get an invite code" />
+									    Watermark="Start hosting to get a code" />
 									<ToggleButton Name="RevealInvite"
 									    Grid.Column="1"
 									    Margin="6,0,0,0"
@@ -88,13 +86,11 @@
 									    Content="Copy" />
 								</Grid>
 								<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-									<TextBlock Classes="hint" VerticalAlignment="Center" Text="Treat it like a password. If it leaks, " />
-									<Button Padding="4,0" Command="{Binding RegenerateTokenCommand}" Content="generate a new one" />
-									<TextBlock Classes="hint" VerticalAlignment="Center" Text="(old codes stop working)." />
+									<TextBlock Classes="hint" VerticalAlignment="Center" Text="Keep it private." />
+									<Button Margin="6,0,0,0" Padding="4,0" Command="{Binding RegenerateTokenCommand}" Content="New code" ToolTip.Tip="Old codes stop working" />
 								</StackPanel>
 
-								<TextBlock Classes="header" Text="Addresses friends will try" />
-								<TextBlock Classes="hint" Text="VPN addresses (e.g. OpenVPN tun0) work when your friends are on the same VPN. Internet addresses need the port forwarded on your router (automatic if UPnP worked)." />
+								<TextBlock Classes="header" Text="Addresses" />
 								<ItemsControl ItemsSource="{Binding Addresses}">
 									<ItemsControl.ItemTemplate>
 										<DataTemplate x:DataType="vm:SyncAddressRow">
@@ -115,9 +111,8 @@
 
 					<!--  ============================ JOIN ============================  -->
 					<TabItem Header="Join">
-						<Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto">
-							<TextBlock Classes="hint" Text="Paste the invite code your friend sent you, then Connect to see what will change before anything is downloaded." />
-							<Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto">
+						<Grid Margin="8" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+								<Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
 								<TextBox PasswordChar="•"
 								    RevealPassword="{Binding #RevealJoinInvite.IsChecked}"
 								    Text="{Binding InviteInput}"
@@ -132,17 +127,17 @@
 								    Command="{Binding ConnectCommand}"
 								    Content="Connect" />
 							</Grid>
-							<SelectableTextBlock Grid.Row="2"
+							<SelectableTextBlock Grid.Row="1"
 							    Margin="0,8,0,0"
 							    Text="{Binding JoinStatus}"
 							    TextWrapping="Wrap" />
-							<TextBlock Grid.Row="3"
+							<TextBlock Grid.Row="2"
 							    Margin="0,6,0,4"
 							    FontWeight="SemiBold"
 							    Text="{Binding PlanSummary}"
 							    TextWrapping="Wrap" />
 
-							<ListBox Grid.Row="4" ItemsSource="{Binding PlanRows}">
+							<ListBox Grid.Row="3" ItemsSource="{Binding PlanRows}">
 								<ListBox.ItemTemplate>
 									<DataTemplate x:DataType="vm:SyncPlanRow">
 										<Grid ColumnDefinitions="110,*,90">
@@ -164,16 +159,16 @@
 								</ListBox.ItemTemplate>
 							</ListBox>
 
-							<StackPanel Grid.Row="5" Margin="0,8,0,0">
-								<CheckBox Content="Move mods the host doesn't have into the backup folder (they're never deleted)" IsChecked="{Binding MoveExtrasToBackup}" />
-								<CheckBox Content="Apply the host's load order (as a new order named 'Synced from ...')" IsChecked="{Binding ApplyLoadOrder}" />
+							<StackPanel Grid.Row="4" Margin="0,8,0,0">
+								<CheckBox Content="Move extra mods to backup" IsChecked="{Binding MoveExtrasToBackup}" />
+								<CheckBox Content="Apply host's load order" IsChecked="{Binding ApplyLoadOrder}" />
 								<CheckBox Margin="24,0,0,0"
-								    Content="Export it to the game right away"
+								    Content="Export to game"
 								    IsChecked="{Binding ExportToGame}"
 								    IsEnabled="{Binding ApplyLoadOrder}" />
 							</StackPanel>
 
-							<StackPanel Grid.Row="6"
+							<StackPanel Grid.Row="5"
 							    Margin="0,8,0,0"
 							    IsVisible="{Binding IsSyncing}">
 								<ProgressBar Height="8" Value="{Binding ProgressPercent}" />
@@ -182,7 +177,7 @@
 								    TextTrimming="CharacterEllipsis" />
 							</StackPanel>
 
-							<StackPanel Grid.Row="7"
+							<StackPanel Grid.Row="6"
 							    Margin="0,8,0,0"
 							    Orientation="Horizontal">
 								<Button Classes="Flat Accent" Command="{Binding SyncCommand}" Content="Sync now" IsVisible="{Binding HasPlan}" />

@@ -135,7 +135,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		Port = settings.Port;
 		UseNatPortMapping = settings.UseNatPortMapping;
 		ExtraAddressesText = string.Join(", ", settings.ExtraAddresses);
-		HostStatus = "Not hosting.";
+		HostStatus = null;
 		LoadClientState();
 
 		var notBusy = this.WhenAnyValue(x => x.IsHosting, x => x.IsHostBusy, (h, b) => !h && !b);
@@ -145,13 +145,13 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		{
 			if (string.IsNullOrEmpty(InviteCode)) return;
 			await CopyToClipboard.Handle(InviteCode);
-			Alert("Invite code copied. Send it to your friend privately; it works like a password.", AlertType.Success, 8);
+			Alert("Invite code copied.", AlertType.Success, 5);
 		}, this.WhenAnyValue(x => x.InviteCode).Select(x => !string.IsNullOrEmpty(x)));
 		RegenerateTokenCommand = ReactiveCommand.Create(() =>
 		{
 			TryGetCore()?.Identity.RegenerateToken();
 			RefreshInvite();
-			Alert("New invite code generated. Old invite codes no longer work.", AlertType.Info);
+			Alert("New invite code created.", AlertType.Info, 5);
 		});
 		RefreshSharedCommand = ReactiveCommand.CreateFromTask(RefreshSharedAsync, this.WhenAnyValue(x => x.IsHosting));
 
@@ -269,15 +269,15 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	{
 		if (TryGetCore() is not { } core) return;
 		var (files, order) = CollectShared();
-		SharedSummary = $"Hashing {files.Count} mod files...";
+		SharedSummary = $"Reading {files.Count} mods...";
 		try
 		{
 			var manifest = await Task.Run(() => core.Host.UpdateSharedSetAsync(files, order, token), token);
-			SharedSummary = $"Sharing {manifest.Files.Count} mod files ({FormatSize(manifest.Files.Sum(x => x.Size))}) and a load order of {manifest.LoadOrder.Count} mods, from your active list.";
+			SharedSummary = $"Sharing {manifest.Files.Count} mods ({FormatSize(manifest.Files.Sum(x => x.Size))}).";
 		}
 		catch (Exception ex) when (ex is not OperationCanceledException)
 		{
-			SharedSummary = $"Failed to read mods: {ex.Message}";
+			SharedSummary = $"Couldn't read mods: {ex.Message}";
 		}
 	}
 
@@ -290,10 +290,10 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			SaveHostSettings();
 			await RefreshSharedAsync(token);
 			HostStatus = "Starting...";
-			NatStatus = UseNatPortMapping ? "Searching for router (UPnP / NAT-PMP)..." : "Automatic port forwarding is off. If friends connect over the internet, forward the port manually.";
+			NatStatus = UseNatPortMapping ? "Searching for router..." : null;
 			await core.Host.StartAsync(token);
 			IsHosting = true;
-			HostStatus = $"Hosting on port {core.Host.Port} (TCP). Keep this window's app open while friends sync.";
+			HostStatus = $"Hosting on port {core.Host.Port}.";
 			RefreshInvite();
 		}
 		catch (Exception ex)
@@ -320,7 +320,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			IsHosting = false;
 			IsHostBusy = false;
 			InviteCode = null;
-			HostStatus = "Not hosting.";
+			HostStatus = null;
 			NatStatus = null;
 			RefreshAddresses();
 		}
@@ -410,7 +410,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		var modsDir = _pathways.Data.AppDataModsPath;
 		if (!modsDir.IsValid())
 		{
-			JoinStatus = "Your Mods folder wasn't found. Check the game paths in Settings first.";
+			JoinStatus = "Mods folder not found. Check Settings.";
 			return;
 		}
 
@@ -425,7 +425,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		_connection = null;
 		try
 		{
-			JoinStatus = $"Connecting to {(invite!.HostName.Length > 0 ? invite.HostName : "host")} ({string.Join(", ", invite.Addresses)})...";
+			JoinStatus = $"Connecting to {(invite!.HostName.Length > 0 ? invite.HostName : "host")}...";
 			var (conn, manifest) = await ModSyncConnection.ConnectAsync(invite, token);
 			_connection = conn;
 			SaveClientState();
@@ -435,7 +435,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			_plan = plan;
 			ShowPlan(plan);
 			HasPlan = true;
-			JoinStatus = $"Connected to {manifest.HostName} via {conn.Address}.";
+			JoinStatus = $"Connected to {manifest.HostName}.";
 		}
 		catch (OperationCanceledException)
 		{
@@ -470,10 +470,9 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		}
 
 		var downloads = plan.Downloads.Count();
-		var extras = plan.Extras.Count();
 		PlanSummary = plan.IsUpToDate
-			? $"Your mods already match. {(extras > 0 ? $"You have {extras} extra mod(s) the host doesn't. " : "")}Sync will just apply the load order."
-			: $"{downloads} file(s) to download ({FormatSize(plan.DownloadBytes)}). {(extras > 0 ? $"You have {extras} extra mod(s) the host doesn't." : "")}";
+			? "Your mods already match."
+			: $"{downloads} to download ({FormatSize(plan.DownloadBytes)}).";
 	}
 
 	private async Task SyncAsync()
@@ -498,7 +497,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		try
 		{
 			// Refetch the manifest so we sync against the host's current state, not what it was when we connected.
-			JoinStatus = "Checking for changes on the host...";
+			JoinStatus = "Checking host...";
 			var manifest = await _connection.GetManifestAsync(token);
 			var plan = manifest.Created == _plan.Manifest.Created ? _plan
 				: ModSyncPlanner.BuildPlan(manifest, await Task.Run(() => ScanLocalModsAsync(modsDir, core.Hashes, token), token));
@@ -506,7 +505,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			ShowPlan(plan);
 
 			// Snapshot the friend's own setup first, so they can switch back from the order dropdown.
-			JoinStatus = "Saving your current load order...";
+			JoinStatus = "Saving your load order...";
 			var snapshot = await SnapshotCurrentSetupAsync(plan.Manifest, IOPath.Join(syncFolder, "Backups"), token);
 
 			JoinStatus = "Downloading...";
@@ -514,8 +513,8 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 				MoveExtrasToBackup, core.Hashes, progress, token), token);
 			LastBackupFolder = result.BackupFolder;
 
-			var summary = $"Your previous load order was saved as '{snapshot}'. Synced: {result.Downloaded} file(s) downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} old file(s) moved to the backup folder." : ".");
-			JoinStatus = summary + " Reloading mods...";
+			var summary = $"Synced: {result.Downloaded} downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} moved to backup." : ".") + $" Old order saved as '{snapshot}'.";
+			JoinStatus = "Reloading mods...";
 			await ReloadModsAsync(token);
 
 			// Make sure the manager actually picked up what we downloaded. On Windows, antivirus scans of freshly written
@@ -525,26 +524,23 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			{
 				var notYet = plan.Downloads.Where(d => d.Remote!.ModUuid != null && expected.Contains(d.Remote.ModUuid) && !_manager.ModExists(d.Remote.ModUuid)).Select(d => d.DisplayName).ToList();
 				DivinityApp.Log($"Mod sync: {notYet.Count} downloaded mod(s) not loaded yet ({string.Join(", ", notYet)}); reloading again (attempt {attempt}/3).");
-				JoinStatus = $"{summary} Waiting for {notYet.Count} new mod(s) to become readable (attempt {attempt}/3)...";
+				JoinStatus = $"Waiting for new mods ({attempt}/3)...";
 				await Task.Delay(TimeSpan.FromSeconds(2 * attempt), token);
 				await ReloadModsAsync(token);
 			}
 			var stillMissing = plan.Downloads.Where(d => d.Remote!.ModUuid != null && expected.Contains(d.Remote.ModUuid) && !_manager.ModExists(d.Remote.ModUuid)).Select(d => d.Remote!.FileName).ToList();
 			if (stillMissing.Count > 0)
 			{
-				summary += $" Warning: the mod list couldn't read {string.Join(", ", stillMissing)} yet (the files are in your Mods folder). Click Refresh in the main window, then apply the 'Synced from' order.";
+				summary += $" Couldn't load {string.Join(", ", stillMissing)}; press Refresh.";
 			}
 
 			if (ApplyLoadOrder)
 			{
 				var (applied, missing) = ApplyHostLoadOrder(plan.Manifest);
-				summary += $" Load order '{applied}' applied";
-				if (missing.Count > 0) summary += $" ({missing.Count} mod(s) in the host's order aren't installed here: {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", ..." : "")})";
-				summary += ".";
+				if (missing.Count > 0) summary += $" Missing from host's order: {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", ..." : "")}.";
 				if (ExportToGame)
 				{
-					if (await ViewModelLocator.ModOrder.ExportLoadOrderAsync(token)) summary += " Exported to the game.";
-					else summary += " Exporting to the game failed; use Export in the main window.";
+					if (!await ViewModelLocator.ModOrder.ExportLoadOrderAsync(token)) summary += " Export to game failed.";
 				}
 			}
 			JoinStatus = summary;
@@ -555,7 +551,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		}
 		catch (OperationCanceledException)
 		{
-			JoinStatus = "Sync cancelled. Your Mods folder wasn't changed; partial downloads will resume next time.";
+			JoinStatus = "Sync cancelled. Nothing was changed.";
 		}
 		catch (Exception ex)
 		{
