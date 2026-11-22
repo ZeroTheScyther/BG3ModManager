@@ -16,8 +16,7 @@ internal class Program
 {
 	private static bool EnsureSingleInstance(string[] args)
 	{
-		var procName = Process.GetCurrentProcess().ProcessName;
-		if (Process.GetProcessesByName(procName).Length > 1)
+		if (IsAnotherInstanceRunning())
 		{
 			if (args.Length > 0)
 			{
@@ -42,6 +41,33 @@ internal class Program
 #if !DEBUG
 			return true;
 #endif
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Same-named processes only count if they run this exe: the launcher (updater) is also called BG3ModManager and
+	/// is still alive while it starts us.
+	/// </summary>
+	private static bool IsAnotherInstanceRunning()
+	{
+		using var self = Process.GetCurrentProcess();
+		var selfPath = Environment.ProcessPath;
+		var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+		foreach (var p in Process.GetProcessesByName(self.ProcessName))
+		{
+			using (p)
+			{
+				if (p.Id == self.Id) continue;
+				try
+				{
+					if (selfPath == null || string.Equals(p.MainModule?.FileName, selfPath, comparison)) return true;
+				}
+				catch
+				{
+					// Can't inspect it (other user, exiting); not ours.
+				}
+			}
 		}
 		return false;
 	}

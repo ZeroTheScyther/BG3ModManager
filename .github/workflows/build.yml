@@ -41,8 +41,25 @@ jobs:
         # (real HTTPS host + client over localhost).
         run: dotnet test src/Tests -c Release --filter "FullyQualifiedName~ModSyncTests"
 
+      - name: NativeAOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Version
+        # Tags like v2.3.0-sync set the app version (the launcher compares it with the latest release tag).
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"; v="${v%%-*}"; v="${v%%+*}"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION_ARGS=-p:AssemblyVersion=$v.0 -p:FileVersion=$v.0" >> "$GITHUB_ENV"
+          fi
+
       - name: Publish
-        run: dotnet publish src/GUI/Desktop-Avalonia -c Release -r ${{ matrix.rid }} --self-contained true -o out/BG3ModManager
+        # Layout: BG3ModManager/ = launcher (updater), BG3ModManager/app/ = the mod manager.
+        shell: bash
+        run: |
+          dotnet publish src/GUI/Desktop-Avalonia -c Release -r ${{ matrix.rid }} --self-contained true -o out/BG3ModManager/app $VERSION_ARGS
+          dotnet publish src/Launcher -c Release -r ${{ matrix.rid }} -o out/BG3ModManager
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
@@ -77,4 +94,5 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-          prerelease: true
+          # Not a prerelease: the launcher only picks up "latest" releases.
+          prerelease: false

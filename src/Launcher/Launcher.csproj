@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!--
+	Updater/launcher. Shipped next to app/ (the mod manager). Checks the latest GitHub release, updates app/ (and itself)
+	if needed, then starts the mod manager. Published as a NativeAOT single file so it needs no runtime and doesn't lock
+	anything in app/.
+	-->
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AssemblyName>BG3ModManager</AssemblyName>
+		<RootNamespace>ModManager.Launcher</RootNamespace>
+		<ApplicationIcon>..\GUI\ModManager\Assets\BG3ModManager.ico</ApplicationIcon>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+		<PublishAot>true</PublishAot>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<UseSystemResourceKeys>true</UseSystemResourceKeys>
+		<DebugType>none</DebugType>
+		<CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+		<Product>Baldur's Gate 3 Mod Manager</Product>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" />
+		<PackageReference Include="Avalonia.Desktop" />
+		<PackageReference Include="Avalonia.Themes.Fluent" />
+		<EmbeddedResource Include="BG3ModManager.png" LogicalName="icon.png" />
+		<None Include="BG3ModManager.png" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+</Project>
