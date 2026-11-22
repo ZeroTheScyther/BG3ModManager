@@ -160,11 +160,7 @@
 							</ListBox>
 
 							<StackPanel Grid.Row="4" Margin="0,8,0,0">
-								<CheckBox Content="Apply host's load order" IsChecked="{Binding ApplyLoadOrder}" />
-								<CheckBox Margin="24,0,0,0"
-								    Content="Export to game"
-								    IsChecked="{Binding ExportToGame}"
-								    IsEnabled="{Binding ApplyLoadOrder}" />
+								<CheckBox Content="Export to game" IsChecked="{Binding ExportToGame}" />
 							</StackPanel>
 
 							<StackPanel Grid.Row="5"

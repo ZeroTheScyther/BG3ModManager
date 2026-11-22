@@ -33,7 +33,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	public RxCommandUnit CloseCommand { get; }
 	#endregion
 
-	private sealed record ClientState(string? LastInvite, bool ApplyLoadOrder, bool ExportToGame);
+	private sealed record ClientState(string? LastInvite, bool ExportToGame);
 
 	private readonly IModManagerService _manager;
 	private readonly IPathwaysService _pathways;
@@ -74,7 +74,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	[Reactive] public partial bool HasPlan { get; private set; }
 	[Reactive] public partial string? JoinStatus { get; private set; }
 	[Reactive] public partial string? PlanSummary { get; private set; }
-	[Reactive] public partial bool ApplyLoadOrder { get; set; }
 	[Reactive] public partial bool ExportToGame { get; set; }
 	[Reactive] public partial double ProgressPercent { get; private set; }
 	[Reactive] public partial string? ProgressText { get; private set; }
@@ -178,7 +177,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			};
 		}
 
-		this.WhenAnyValue(x => x.ApplyLoadOrder, x => x.ExportToGame).Skip(1).Subscribe(_ => SaveClientState());
+		this.WhenAnyValue(x => x.ExportToGame).Skip(1).Subscribe(_ => SaveClientState());
 		this.WhenAnyValue(x => x.IsVisible).Where(v => v).Subscribe(_ => { if (!IsHosting) RefreshAddresses(); });
 	}
 
@@ -334,7 +333,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	#region Join
 	private void LoadClientState()
 	{
-		ApplyLoadOrder = true;
 		ExportToGame = true;
 		try
 		{
@@ -342,7 +340,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			var state = JsonSerializer.Deserialize<ClientState>(IOFile.ReadAllText(ClientStateFile));
 			if (state == null) return;
 			InviteInput = state.LastInvite;
-			ApplyLoadOrder = state.ApplyLoadOrder;
 			ExportToGame = state.ExportToGame;
 		}
 		catch (Exception ex)
@@ -356,7 +353,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		try
 		{
 			IODirectory.CreateDirectory(DataFolder);
-			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), ApplyLoadOrder, ExportToGame)));
+			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), ExportToGame)));
 			if (!OperatingSystem.IsWindows()) IOFile.SetUnixFileMode(ClientStateFile, System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite);
 		}
 		catch (Exception ex)
@@ -502,16 +499,12 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			_plan = plan;
 			ShowPlan(plan);
 
-			// Snapshot the friend's own setup first, so they can switch back from the order dropdown.
-			JoinStatus = "Saving your load order...";
-			var snapshot = await SnapshotCurrentSetupAsync(plan.Manifest, IOPath.Join(syncFolder, "Backups"), token);
-
 			JoinStatus = "Downloading...";
 			var result = await Task.Run(() => ModSyncExecutor.ExecuteAsync(_connection, plan, modsDir, IOPath.Join(syncFolder, "Downloads"), IOPath.Join(syncFolder, "Backups"),
 				core.Hashes, progress, token), token);
 			LastBackupFolder = result.BackupFolder;
 
-			var summary = $"Synced: {result.Downloaded} downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} moved to backup." : ".") + $" Old order saved as '{snapshot}'.";
+			var summary = $"Synced: {result.Downloaded} downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} moved to backup." : ".");
 			JoinStatus = "Reloading mods...";
 			await ReloadModsAsync(token);
 
@@ -532,14 +525,12 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 				summary += $" Couldn't load {string.Join(", ", stillMissing)}; press Refresh.";
 			}
 
-			if (ApplyLoadOrder)
+			var (orderName, missing) = await ApplyHostLoadOrderAsync(plan.Manifest, token);
+			summary += $" Order: {orderName}.";
+			if (missing.Count > 0) summary += $" Missing: {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", ..." : "")}.";
+			if (ExportToGame)
 			{
-				var (applied, missing) = ApplyHostLoadOrder(plan.Manifest);
-				if (missing.Count > 0) summary += $" Missing from host's order: {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", ..." : "")}.";
-				if (ExportToGame)
-				{
-					if (!await ViewModelLocator.ModOrder.ExportLoadOrderAsync(token)) summary += " Export to game failed.";
-				}
+				if (!await ViewModelLocator.ModOrder.ExportLoadOrderAsync(token)) summary += " Export to game failed.";
 			}
 			JoinStatus = summary;
 			Alert(summary, AlertType.Success, 15);
@@ -562,47 +553,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		}
 	}
 
-	/// <summary>
-	/// Saves the currently active mods as a named order ("Before sync from X, date") in the Orders folder and copies the
-	/// game's modsettings.lsx into the sync backup folder. Throws if the order can't be saved, so sync never overwrites
-	/// a setup the user can't get back to.
-	/// </summary>
-	private async Task<string> SnapshotCurrentSetupAsync(SyncManifest manifest, string backupRoot, CancellationToken token)
-	{
-		var modOrder = ViewModelLocator.ModOrder;
-		var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm");
-		var name = $"Before sync from {(manifest.HostName.Length > 0 ? manifest.HostName : "host")} {stamp}";
-		var order = new ModOrder { Name = name };
-
-		void Visit(IEnumerable<IModEntry> entries)
-		{
-			foreach (var entry in entries)
-			{
-				if (entry is ModEntry { Data: ModData m }) { if (Guid.TryParse(m.UUID, out _)) order.Add(m); }
-				else if (entry.Children != null) Visit(entry.Children);
-			}
-		}
-		Visit(modOrder.ActiveMods);
-
-		var ordersDir = modOrder.GetOrdersDirectory();
-		IODirectory.CreateDirectory(ordersDir);
-		order.FilePath = IOPath.Join(ordersDir, ModDataLoader.MakeSafeFilename(name + ".json", '_'));
-		if (!await ModDataLoader.ExportLoadOrderToFileAsync(order.FilePath, order, token))
-		{
-			throw new InvalidOperationException($"Couldn't save your current load order to '{order.FilePath}', so nothing was changed.");
-		}
-
-		var profileDir = modOrder.SelectedProfile?.FilePath;
-		var modSettings = profileDir.IsValid() ? IOPath.Join(profileDir!, "modsettings.lsx") : null;
-		if (modSettings != null && IOFile.Exists(modSettings))
-		{
-			IODirectory.CreateDirectory(backupRoot);
-			IOFile.Copy(modSettings, IOPath.Join(backupRoot, $"modsettings before sync {stamp}.lsx"), true);
-		}
-		DivinityApp.Log($"Saved pre-sync load order '{name}' ({order.Entries.Count} mods) to '{order.FilePath}'.");
-		return name;
-	}
-
 	private static async Task ReloadModsAsync(CancellationToken token)
 	{
 		var main = ViewModelLocator.Main;
@@ -612,10 +562,17 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		await main.WhenAnyValue(x => x.IsRefreshing).Where(r => !r).Take(1).Timeout(TimeSpan.FromMinutes(5)).ToTask(token);
 	}
 
-	private (string Name, List<string> Missing) ApplyHostLoadOrder(SyncManifest manifest)
+	/// <summary>
+	/// Writes the host's load order to one order per host ("Sync_HostName"), overwritten on every sync, and selects it.
+	/// The user's own orders are never touched.
+	/// </summary>
+	private async Task<(string Name, List<string> Missing)> ApplyHostLoadOrderAsync(SyncManifest manifest, CancellationToken token)
 	{
-		var name = $"Synced from {(manifest.HostName.Length > 0 ? manifest.HostName : "host")}";
-		var order = new ModOrder { Name = name };
+		var name = $"Sync_{(manifest.HostName.Length > 0 ? manifest.HostName : "Host")}";
+		var modOrder = ViewModelLocator.ModOrder;
+		var path = modOrder.GetOrderFilePath(name);
+
+		var order = new ModOrder { Name = name, FilePath = path };
 		List<string> missing = [];
 		foreach (var entry in manifest.LoadOrder)
 		{
@@ -623,18 +580,23 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			else missing.Add(entry.Name);
 		}
 
-		var modOrder = ViewModelLocator.ModOrder;
-		var existing = modOrder.ExternalModOrders.FirstOrDefault(x => x.Name == name);
+		IODirectory.CreateDirectory(modOrder.GetOrdersDirectory());
+		if (!await ModDataLoader.ExportLoadOrderToFileAsync(path, order, token))
+		{
+			throw new InvalidOperationException($"Couldn't save '{name}'.");
+		}
+
+		var existing = modOrder.ExternalModOrders.FirstOrDefault(x => x.FilePath.IsValid() && IOPath.GetFullPath(x.FilePath!) == IOPath.GetFullPath(path));
 		if (existing != null)
 		{
 			existing.CopyOrder(order);
-			modOrder.LoadModOrder(existing);
 		}
 		else
 		{
 			modOrder.AddNewModOrder(order);
-			modOrder.LoadModOrder(order);
+			existing = order;
 		}
+		modOrder.SelectOrder(existing);
 		return (name, missing);
 	}
 	#endregion
