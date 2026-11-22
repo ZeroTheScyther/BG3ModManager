@@ -107,17 +107,16 @@ public sealed class ModSyncTests : BaseTest, IAsyncLifetime
 		Assert.Equal("OnlyMine.pak", plan.Extras.Single().Local!.FileName);
 
 		var backupRoot = Path.Join(_root, "client", "Backup");
-		var result = await ModSyncExecutor.ExecuteAsync(conn, plan, _clientMods, Path.Join(_root, "client", "work"), backupRoot, true, null, null, ct);
+		var result = await ModSyncExecutor.ExecuteAsync(conn, plan, _clientMods, Path.Join(_root, "client", "work"), backupRoot, null, null, ct);
 
 		Assert.Equal(3, result.Downloaded);
-		Assert.Equal(3, result.MovedToBackup); // old ModB, old ModC, extra
+		Assert.Equal(2, result.MovedToBackup); // old ModB, old ModC; the extra stays
 		var clientFiles = Directory.GetFiles(_clientMods).Select(Path.GetFileName).Order().ToList();
-		Assert.Equal(["ModA.pak", "ModB_v2.pak", "ModC.pak"], clientFiles);
+		Assert.Equal(["ModA.pak", "ModB_v2.pak", "ModC.pak", "OnlyMine.pak"], clientFiles);
 		Assert.Equal(Sha(a), Sha(Path.Join(_clientMods, "ModA.pak")));
 		Assert.Equal(Sha(b), Sha(Path.Join(_clientMods, "ModB_v2.pak")));
 		Assert.Equal(Sha(c), Sha(Path.Join(_clientMods, "ModC.pak")));
-		Assert.False(File.Exists(extra));
-		Assert.True(File.Exists(Path.Join(result.BackupFolder!, "OnlyMine.pak")));
+		Assert.True(File.Exists(extra));
 		Assert.True(File.Exists(Path.Join(result.BackupFolder!, "ModB_v1.pak")));
 
 		// Second pass: everything is up to date now.

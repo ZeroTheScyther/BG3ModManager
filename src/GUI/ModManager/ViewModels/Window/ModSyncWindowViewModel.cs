@@ -33,7 +33,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	public RxCommandUnit CloseCommand { get; }
 	#endregion
 
-	private sealed record ClientState(string? LastInvite, bool MoveExtrasToBackup, bool ApplyLoadOrder, bool ExportToGame);
+	private sealed record ClientState(string? LastInvite, bool ApplyLoadOrder, bool ExportToGame);
 
 	private readonly IModManagerService _manager;
 	private readonly IPathwaysService _pathways;
@@ -74,7 +74,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	[Reactive] public partial bool HasPlan { get; private set; }
 	[Reactive] public partial string? JoinStatus { get; private set; }
 	[Reactive] public partial string? PlanSummary { get; private set; }
-	[Reactive] public partial bool MoveExtrasToBackup { get; set; }
 	[Reactive] public partial bool ApplyLoadOrder { get; set; }
 	[Reactive] public partial bool ExportToGame { get; set; }
 	[Reactive] public partial double ProgressPercent { get; private set; }
@@ -179,7 +178,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			};
 		}
 
-		this.WhenAnyValue(x => x.MoveExtrasToBackup, x => x.ApplyLoadOrder, x => x.ExportToGame).Skip(1).Subscribe(_ => SaveClientState());
+		this.WhenAnyValue(x => x.ApplyLoadOrder, x => x.ExportToGame).Skip(1).Subscribe(_ => SaveClientState());
 		this.WhenAnyValue(x => x.IsVisible).Where(v => v).Subscribe(_ => { if (!IsHosting) RefreshAddresses(); });
 	}
 
@@ -343,7 +342,6 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			var state = JsonSerializer.Deserialize<ClientState>(IOFile.ReadAllText(ClientStateFile));
 			if (state == null) return;
 			InviteInput = state.LastInvite;
-			MoveExtrasToBackup = state.MoveExtrasToBackup;
 			ApplyLoadOrder = state.ApplyLoadOrder;
 			ExportToGame = state.ExportToGame;
 		}
@@ -358,7 +356,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		try
 		{
 			IODirectory.CreateDirectory(DataFolder);
-			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), MoveExtrasToBackup, ApplyLoadOrder, ExportToGame)));
+			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), ApplyLoadOrder, ExportToGame)));
 			if (!OperatingSystem.IsWindows()) IOFile.SetUnixFileMode(ClientStateFile, System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite);
 		}
 		catch (Exception ex)
@@ -462,7 +460,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 				SyncActionKind.Download => ("New", "#4CAF50"),
 				SyncActionKind.Update => ("Update", "#2196F3"),
 				SyncActionKind.Replace => ("Replace", "#FF9800"),
-				SyncActionKind.Extra => ("Only you have", "#9E9E9E"),
+				SyncActionKind.Extra => ("Only you have (kept)", "#9E9E9E"),
 				_ => ("Up to date", "#607D8B"),
 			};
 			var size = a.Remote != null ? FormatSize(a.Remote.Size) : a.Local != null ? FormatSize(a.Local.Size) : "";
@@ -510,7 +508,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 
 			JoinStatus = "Downloading...";
 			var result = await Task.Run(() => ModSyncExecutor.ExecuteAsync(_connection, plan, modsDir, IOPath.Join(syncFolder, "Downloads"), IOPath.Join(syncFolder, "Backups"),
-				MoveExtrasToBackup, core.Hashes, progress, token), token);
+				core.Hashes, progress, token), token);
 			LastBackupFolder = result.BackupFolder;
 
 			var summary = $"Synced: {result.Downloaded} downloaded" + (result.MovedToBackup > 0 ? $", {result.MovedToBackup} moved to backup." : ".") + $" Old order saved as '{snapshot}'.";

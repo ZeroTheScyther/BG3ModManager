@@ -233,11 +233,12 @@ public static class ModSyncExecutor
 {
 	/// <summary>
 	/// Applies a plan: downloads into <paramref name="workFolder"/>, verifies, then moves into the Mods folder.
-	/// Local files being replaced (and extras, if <paramref name="moveExtrasToBackup"/>) are moved to a timestamped
-	/// backup folder, never deleted.
+	/// Local files being replaced are moved to a timestamped backup folder, never deleted. Extras (mods the host doesn't
+	/// have) are left alone: applying the host's load order makes them inactive, and moving them out of the Mods folder
+	/// fights other managers (the in-game mod.io manager re-downloads them, creating duplicates).
 	/// </summary>
 	public static async Task<SyncResult> ExecuteAsync(ModSyncConnection connection, SyncPlan plan, string modsFolder, string workFolder, string backupRoot,
-		bool moveExtrasToBackup, FileHashCache? hashes, IProgress<SyncProgress>? progress, CancellationToken token)
+		FileHashCache? hashes, IProgress<SyncProgress>? progress, CancellationToken token)
 	{
 		var downloads = plan.Downloads.ToList();
 		var totalBytes = downloads.Sum(x => x.Remote!.Size);
@@ -290,14 +291,6 @@ public static class ModSyncExecutor
 			File.Move(part, target);
 			hashes?.Set(target, remote.Sha256);
 			downloaded++;
-		}
-
-		if (moveExtrasToBackup)
-		{
-			foreach (var extra in plan.Extras)
-			{
-				if (File.Exists(extra.Local!.FullPath)) Backup(extra.Local.FullPath);
-			}
 		}
 
 		hashes?.Save();

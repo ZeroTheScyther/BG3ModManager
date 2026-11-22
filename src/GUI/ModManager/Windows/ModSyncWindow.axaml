@@ -160,7 +160,6 @@
 							</ListBox>
 
 							<StackPanel Grid.Row="4" Margin="0,8,0,0">
-								<CheckBox Content="Move extra mods to backup" IsChecked="{Binding MoveExtrasToBackup}" />
 								<CheckBox Content="Apply host's load order" IsChecked="{Binding ApplyLoadOrder}" />
 								<CheckBox Margin="24,0,0,0"
 								    Content="Export to game"
