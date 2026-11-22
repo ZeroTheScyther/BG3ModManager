@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:loca="using:ModManager.Locale"
     xmlns:m="using:ModManager.Models"
+    xmlns:conv="using:ModManager.Converters"
     xmlns:manager="using:ModManager"
     xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -105,7 +106,9 @@
 		    VerticalAlignment="Top"
 		    Background="Transparent">
 			<WrapPanel Margin="12,0">
-				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+				<StackPanel VerticalAlignment="Center"
+				    IsVisible="{Binding ModOrder.Profiles.Count, Converter={x:Static conv:CountConverters.GreaterThanOne}, FallbackValue=False}"
+				    Orientation="Horizontal">
 					<TextBlock Margin="0,0,4,0" VerticalAlignment="Center" Text="{manager:LocaleKey CommandBar_Section_Profile}" />
 					<controls:ComboBoxWithRightClick Name="ProfileComboBox"
 					    MaxWidth="150"
@@ -150,6 +153,10 @@
 						<FlyoutBase.AttachedFlyout>
 							<MenuFlyout Placement="Pointer" ShowMode="Transient">
 								<MenuItem Command="{Binding RenameOrderCommand}" Header="{manager:LocaleKey Button_Rename}" Icon="{materialIcons:MaterialIconExt Kind=Rename}" />
+								<MenuItem Command="{Binding ModOrder.DeleteOrderCommand}"
+								    CommandParameter="{Binding ModOrder.SelectedModOrder}"
+								    Header="Delete"
+								    Icon="{materialIcons:MaterialIconExt Kind=Delete}" />
 								<MenuItem Command="{Binding OpenSelectedModOrderFilePathCommand}" Header="{manager:LocaleKey Button_OpenInFileExplorer}" Icon="{materialIcons:MaterialIconExt Kind=OpenInApp}" />
 								<MenuItem Command="{Binding OpenSelectedModOrderFilePathCommand}"
 								    CommandParameter="dopus"
@@ -175,6 +182,13 @@
 					<Button Command="{Binding SaveOrderAsCommand}" Content="{materialIcons:MaterialIconExt Kind=ContentSaveEdit}" ToolTip.Tip="{manager:LocaleKey CommandBar_Button_SaveOrderAs_ToolTip}" />
 
 					<Button Command="{Binding AddNewOrderCommand}" Content="{materialIcons:MaterialIconExt Kind=Add, IconForeground=OrangeRed}" ToolTip.Tip="{manager:LocaleKey CommandBar_Button_AddNewOrder_ToolTip}" />
+
+					<Button Command="{Binding RenameOrderCommand}" Content="{materialIcons:MaterialIconExt Kind=Rename}" ToolTip.Tip="Rename the selected load order (and its file)" />
+
+					<Button Command="{Binding ModOrder.DeleteOrderCommand}"
+					    CommandParameter="{Binding ModOrder.SelectedModOrder}"
+					    Content="{materialIcons:MaterialIconExt Kind=Delete, IconForeground=IndianRed}"
+					    ToolTip.Tip="Delete the selected load order (its file goes to the trash). 'Current' can't be deleted." />
 				</StackPanel>
 				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
 					<TextBlock Margin="4,0,4,0" VerticalAlignment="Center" Text="{manager:LocaleKey CommandBar_Section_Export}" />

@@ -378,7 +378,7 @@ public partial class MainCommandBarViewModel : ReactiveObject
 		var hasActiveMods = ModOrder.WhenAnyValue(x => x.TotalActiveMods, x => x > 0);
 		var canExecuteHasActive = canExecuteModOrderCommands.CombineLatest(hasActiveMods).AllTrue();
 
-		AddNewOrderCommand = ReactiveCommand.Create(() => ModOrder.AddNewModOrder(), canExecuteModOrderCommands);
+		AddNewOrderCommand = ReactiveCommand.CreateFromTask(ModOrder.CreateNewOrderAsync, canExecuteModOrderCommands);
 
 		CheckForAppUpdatesCommand = ReactiveCommand.Create(() =>
 		{
@@ -510,29 +510,41 @@ public partial class MainCommandBarViewModel : ReactiveObject
 		RenameOrderCommand = ReactiveCommand.CreateFromTask(async () =>
 		{
 			var order = modOrder.SelectedModOrder!;
-			var orderPath = order.FilePath!;
-			var fileName = fs.Path.GetFileNameWithoutExtension(orderPath);
-			var directory = fs.Path.GetDirectoryName(orderPath);
-			var ext = fs.Path.GetExtension(orderPath);
+			var currentName = order.Name ?? "";
 
-			var request = new ShowMessageBoxRequest($"Rename {fileName}", $"Input a new name for {orderPath}. This will update the file path as well.", InteractionMessageBoxType.Input, fileName);
+			var request = new ShowMessageBoxRequest($"Rename {currentName}", "New name for this load order. Its file is renamed too.", InteractionMessageBoxType.Input, currentName);
 			var result = await AppServices.Interactions.ShowMessageBox.Handle(request);
+			var nextName = result.Input?.Trim();
+			if (!result.Result || !nextName.IsValid() || nextName == currentName) return;
 
-			if (result.Result && result.Input.IsValid())
+			var nextFilePath = order.FilePath.IsValid()
+				? fs.Path.Join(fs.Path.GetDirectoryName(order.FilePath)!, ModDataLoader.MakeSafeFilename(nextName + ".json", '_')).NormalizeDirectorySep()
+				: modOrder.GetOrderFilePath(nextName!);
+
+			// Never overwrite another saved order (the old code moved over it and silently dropped it).
+			if (fs.File.Exists(nextFilePath) && !fs.PathEquals(nextFilePath, order.FilePath))
 			{
-				var nextName = fs.Path.GetFileNameWithoutExtension(result.Input);
-				var nextFilePath = fs.Path.Join(directory, ModDataLoader.MakeSafeFilename(nextName + ext, '_'));
-
-				fs.File.Move(orderPath, nextFilePath, true);
-				var existingOrder = modOrder.ExternalModOrders.FirstOrDefault(x => fs.PathEquals(x.FilePath, nextFilePath));
-				if (existingOrder != null)
-				{
-					modOrder.ExternalModOrders.Remove(existingOrder);
-				}
-				order.Name = nextName;
-				order.FilePath = nextFilePath.NormalizeDirectorySep();
-				AppServices.Commands.ShowAlert($"Renamed load order to '{nextFilePath}'", AlertType.Success, 20);
+				AppServices.Commands.ShowAlert($"A load order named '{nextName}' already exists.", AlertType.Warning, 10);
+				return;
 			}
+
+			if (order.FilePath.IsExistingFile())
+			{
+				fs.File.Move(order.FilePath!, nextFilePath);
+			}
+			else
+			{
+				// Never saved yet (e.g. an old "New3"): save it under the new name instead of crashing on a missing file.
+				order.FilePath = nextFilePath;
+				if (!await ModDataLoader.ExportLoadOrderToFileAsync(nextFilePath, order, CancellationToken.None))
+				{
+					AppServices.Commands.ShowAlert($"Failed to save load order to '{nextFilePath}'", AlertType.Danger, 20);
+					return;
+				}
+			}
+			order.Name = fs.Path.GetFileNameWithoutExtension(nextFilePath);
+			order.FilePath = nextFilePath;
+			AppServices.Commands.ShowAlert($"Renamed load order to '{order.Name}'", AlertType.Success, 10);
 		}, canExecuteCommands.CombineLatest(canRenameOrder).AllTrue());
 
 		//TODO

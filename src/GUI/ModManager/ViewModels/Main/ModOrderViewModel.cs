@@ -706,7 +706,8 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 			// Save mods that aren't missing
 			var tempOrder = SelectedModOrder.Clone();
 			tempOrder.Name = modOrderName;
-			if (ModDataLoader.ExportLoadOrderToFile(outputPath, SelectedModOrder))
+			tempOrder.FilePath = outputPath.NormalizeDirectorySep();
+			if (ModDataLoader.ExportLoadOrderToFile(outputPath, tempOrder))
 			{
 				AppServices.Commands.ShowAlert($"Saved mod load order to '{outputPath}'", AlertType.Success, 10);
 				var updatedOrder = false;
@@ -725,6 +726,7 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 				if (!updatedOrder)
 				{
 					AddNewModOrder(tempOrder);
+					SelectOrder(tempOrder);
 				}
 				else
 				{
@@ -960,19 +962,23 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 
 	private async Task DeleteOrder(ModOrder order)
 	{
-		var data = new ShowMessageBoxRequest("Confirm Order Deletion", 
-			$"Delete load order '{order.Name}'? This cannot be undone.",
+		if (order.IsModSettings) return; // "Current" is the game's own modsettings.lsx; never delete it
+		var data = new ShowMessageBoxRequest("Confirm Order Deletion",
+			$"Delete load order '{order.Name}'?" + (order.FilePath.IsExistingFile() ? " Its file will be moved to the trash / recycle bin." : ""),
 			InteractionMessageBoxType.Warning | InteractionMessageBoxType.YesNo);
 		var result = await AppServices.Interactions.ShowMessageBox.Handle(data);
 		if (result)
 		{
-			SelectedModOrderIndex = 0;
-			ModOrderList.Remove(order);
-			if (order.FilePath.IsExistingFile())
+			if (order.FilePath.IsExistingFile() && !RecycleBinHelper.DeleteFile(order.FilePath, false, false))
 			{
-				RecycleBinHelper.DeleteFile(order.FilePath, false, false);
-				AppServices.Commands.ShowAlert($"Sent load order '{order.FilePath}' to the recycle bin", AlertType.Warning, 25);
+				AppServices.Commands.ShowAlert($"Couldn't move '{order.FilePath}' to the trash, so the order was kept.", AlertType.Danger, 25);
+				return;
 			}
+			// Remove from both lists: ModOrderList is rebuilt from ExternalModOrders, so removing only from the former
+			// made deleted orders reappear on the next rebuild.
+			ExternalModOrders.Remove(order);
+			BuildModOrderList(SelectedProfile!, 0);
+			AppServices.Commands.ShowAlert($"Deleted load order '{order.Name}'", AlertType.Warning, 10);
 		}
 	}
 
@@ -1255,6 +1261,54 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		}
 		ExternalModOrders.Add(newOrder);
 		BuildModOrderList(SelectedProfile, ExternalModOrders.Count); // +1 due to Current being index 0
+	}
+
+	/// <summary>Path for a saved order with this name in the Orders folder.</summary>
+	public string GetOrderFilePath(string name) => _fs.Path.Join(GetOrdersDirectory(), ModDataLoader.MakeSafeFilename(name + ".json", '_')).NormalizeDirectorySep();
+
+	/// <summary>
+	/// Asks for a name, creates an order from the current active mods, saves it to the Orders folder right away (so it
+	/// survives a restart) and selects it. Replaces the old behaviour of silently adding unsaved "New3", "New4"...
+	/// </summary>
+	public async Task CreateNewOrderAsync()
+	{
+		var suggested = "New Order";
+		for (var i = 2; _fs.File.Exists(GetOrderFilePath(suggested)); i++) suggested = $"New Order {i}";
+
+		var request = new ShowMessageBoxRequest("New Load Order", "Name for the new load order. It starts as a copy of your current active mods.", InteractionMessageBoxType.Input, suggested);
+		var result = await AppServices.Interactions.ShowMessageBox.Handle(request);
+		var name = result.Input?.Trim();
+		if (!result.Result || !name.IsValid()) return;
+
+		var path = GetOrderFilePath(name!);
+		if (_fs.File.Exists(path) || ExternalModOrders.Any(x => _fs.PathEquals(x.FilePath, path)))
+		{
+			AppServices.Commands.ShowAlert($"A load order named '{name}' already exists.", AlertType.Warning, 10);
+			return;
+		}
+
+		var order = new ModOrder { Name = _fs.Path.GetFileNameWithoutExtension(path), FilePath = path };
+		foreach (var mod in ActiveMods)
+		{
+			if (mod.EntryType == ModEntryType.Mod && mod is ModEntry entry && entry.Data != null) order.Add(entry.Data);
+		}
+		_fs.Directory.CreateDirectory(_fs.Path.GetDirectoryName(path)!);
+		if (!await ModDataLoader.ExportLoadOrderToFileAsync(path, order, CancellationToken.None))
+		{
+			AppServices.Commands.ShowAlert($"Failed to save new load order to '{path}'", AlertType.Danger, 20);
+			return;
+		}
+		AddNewModOrder(order);
+		SelectOrder(order);
+		AppServices.Commands.ShowAlert($"Created load order '{order.Name}'", AlertType.Success, 8);
+	}
+
+	/// <summary>Selects an order in the dropdown by reference (BuildModOrderList's index can point elsewhere) and loads it.</summary>
+	public void SelectOrder(ModOrder order)
+	{
+		var index = ModOrderList.IndexOf(order);
+		if (index >= 0 && SelectedModOrderIndex != index) SelectedModOrderIndex = index;
+		if (!ReferenceEquals(SelectedModOrder, order) || !order.IsLoaded) LoadModOrder(order);
 	}
 
 	public bool LoadModOrder() => LoadModOrder(SelectedModOrder);

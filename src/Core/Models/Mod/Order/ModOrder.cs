@@ -326,7 +326,21 @@ public partial class ModOrder : ReactiveObject, IJsonOnDeserialized
 		if (Extras?.Count > 0)
 		{
 			//Renamed Order to "Entries" so it isn't serialized As Order.Order
-			if (JsonUtils.TryGetExtraProperty(Extras, "Order", out List<IModOrderEntry>? order) && order != null)
+			//v1 order files (BG3MM 1.x) store entries as { "UUID": "...", "Name": "..." }, while IModOrderEntry uses "Id",
+			//so read them by hand; otherwise every legacy order loads with null ids and shows up empty.
+			if (Extras.TryGetValue("Order", out var raw) && raw is System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.Array } arr)
+			{
+				foreach (var item in arr.EnumerateArray())
+				{
+					if (item.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+					string? Str(string name) => item.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+					var id = Str("UUID") ?? Str("Id") ?? Str("id") ?? Str("uuid");
+					if (string.IsNullOrWhiteSpace(id)) continue;
+					Add(new ModOrderMod(id) { Name = Str("Name") ?? Str("name") });
+				}
+				Extras.Remove("Order");
+			}
+			else if (JsonUtils.TryGetExtraProperty(Extras, "Order", out List<IModOrderEntry>? order) && order != null)
 			{
 				AddRange(order);
 				Extras.Remove("Order");
