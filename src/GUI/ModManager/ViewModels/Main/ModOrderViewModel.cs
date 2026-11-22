@@ -1499,7 +1499,9 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		{
 			if(entry.Type == ModEntryType.Mod)
 			{
-				if(!WasAdded(entry.Id) && modManager.TryGetMod(entry.Id, out var mod))
+				// Base game modules (e.g. GustavX, shown as "Main") and the campaign aren't load order entries; orders saved
+				// from modsettings.lsx contain them, and listing them made the active list and modsettings.lsx disagree.
+				if(!WasAdded(entry.Id) && !ModDataLoader.IgnoreMod(entry.Id) && modManager.TryGetMod(entry.Id, out var mod) && mod.ModType != "Adventure")
 				{
 					addedActiveMods.Add(entry.Id);
 					ActiveMods.Add(mod.ToModInterface());
@@ -2195,7 +2197,8 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 				checkModSettingsTask?.Dispose();
 				checkModSettingsTask = RxApp.TaskpoolScheduler.ScheduleAsync(TimeSpan.FromSeconds(2), async (sch, token) =>
 				{
-					var activeCount = ActiveMods.Count;
+					// CountActive() skips base game modules, so count the same way here.
+					var activeCount = ActiveMods.Count(x => x.EntryType == ModEntryType.Mod && !ModDataLoader.IgnoreMod(x.UUID));
 					var modSettingsData = await ModDataLoader.LoadModSettingsFileAsync(e.FullPath, token);
 					if (activeCount > 0 && modSettingsData.CountActive() < activeCount)
 					{
