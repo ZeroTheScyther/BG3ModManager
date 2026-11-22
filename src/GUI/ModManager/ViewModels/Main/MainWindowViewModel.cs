@@ -859,10 +859,16 @@ public partial class MainWindowViewModel : ReactiveObject, IScreen
 
 		Settings.WhenAnyValue(x => x.DeleteModCrashSanityCheck, x => x.GameExecutablePath).SkipUntil(isReady).ObserveOn(RxApp.MainThreadScheduler).Subscribe(x =>
 		{
-			if (x.Item1 && x.Item2.IsValid() && ExtenderSettings.InsanityCheck != true && !Settings.SettingsWindowIsOpen && Settings.GameExecutablePath.IsExistingFile())
+			if (x.Item1 && x.Item2.IsValid() && !Settings.SettingsWindowIsOpen && Settings.GameExecutablePath.IsExistingFile())
 			{
-				ExtenderSettings.InsanityCheck = true;
-				_settings.TrySave(ExtenderSettings, out _);
+				// Read the current file first: this can fire before LoadExtenderSettingsAsync has loaded it, and saving the
+				// in-memory defaults wiped the user's settings (CreateConsole, EnableLogging, ...) on every startup.
+				_settings.TryLoad(ExtenderSettings, out _, false);
+				if (ExtenderSettings.InsanityCheck != true)
+				{
+					ExtenderSettings.InsanityCheck = true;
+					_settings.TrySave(ExtenderSettings, out _);
+				}
 			}
 		});
 	}
