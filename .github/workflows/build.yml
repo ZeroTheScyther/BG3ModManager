@@ -63,8 +63,10 @@ jobs:
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
-        # tar keeps the executable bit, which zip would lose.
-        run: tar -czf BG3ModManager-${{ matrix.rid }}.tar.gz -C out BG3ModManager
+        # zip (Info-ZIP) keeps the executable bit. The tar.gz is for launchers before 2.4, which only look for that.
+        run: |
+          (cd out && zip -qr -X ../BG3ModManager-${{ matrix.rid }}.zip BG3ModManager)
+          tar -czf BG3ModManager-${{ matrix.rid }}.tar.gz -C out BG3ModManager
 
       - name: Package (Windows)
         if: runner.os == 'Windows'

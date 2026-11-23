@@ -31,7 +31,7 @@ internal sealed class Updater
 
 	private static readonly string AppExeName = OperatingSystem.IsWindows() ? "BG3ModManager.exe" : "BG3ModManager";
 	private static readonly string Rid = OperatingSystem.IsWindows() ? "win-x64" : "linux-x64";
-	private static readonly string PackageExt = OperatingSystem.IsWindows() ? "zip" : "tar.gz";
+	private const string PackageExt = "zip";
 
 	public string Root { get; }
 	public string AppDir { get; }
@@ -207,14 +207,18 @@ internal sealed class Updater
 	public async Task InstallAsync(ReleaseInfo release, Action<long, long> progress, Action<string> status, CancellationToken ct)
 	{
 		Directory.CreateDirectory(StagingDir);
-		var package = Path.Join(StagingDir, release.AssetName);
+		var extracted = Path.Join(StagingDir, "x");
 
 		status("Downloading…");
-		await DownloadAsync(release, package, progress, ct);
+		if (!await TryDeltaAsync(release, extracted, progress, ct))
+		{
+			var package = Path.Join(StagingDir, release.AssetName);
+			await DownloadAsync(release, package, progress, ct);
 
+			status("Installing…");
+			await Task.Run(() => Extract(package, extracted), ct);
+		}
 		status("Installing…");
-		var extracted = Path.Join(StagingDir, "x");
-		await Task.Run(() => Extract(package, extracted), ct);
 
 		// Archives contain a top-level BG3ModManager/ folder.
 		var pkgRoot = Path.Join(extracted, "BG3ModManager");
@@ -229,6 +233,27 @@ internal sealed class Updater
 		await Task.Run(() => Apply(pkgRoot, pkgApp), CancellationToken.None);
 		TryDeleteDirectory(StagingDir);
 		InstalledTag = release.Tag;
+	}
+
+	/// <summary>Downloads only the files that differ from the installed ones. False: do a full download instead.</summary>
+	private async Task<bool> TryDeltaAsync(ReleaseInfo release, string extracted, Action<long, long> progress, CancellationToken ct)
+	{
+		if (!AppInstalled || !release.AssetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return false;
+		try
+		{
+			TryDeleteDirectory(extracted);
+			if (await DeltaUpdate.TryBuildAsync(Http, release, Root, AppDir, extracted, progress, ct)) return true;
+		}
+		catch (OperationCanceledException) when (ct.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch (Exception ex)
+		{
+			Log.Write($"Delta update failed, downloading everything: {ex.Message}");
+		}
+		TryDeleteDirectory(extracted);
+		return false;
 	}
 
 	private static async Task DownloadAsync(ReleaseInfo release, string path, Action<long, long> progress, CancellationToken ct)
@@ -307,6 +332,8 @@ internal sealed class Updater
 			throw;
 		}
 		Log.Write("Swapped in new app/");
+		EnsureExecutable(AppExe);
+		EnsureExecutable(Path.Join(AppDir, "createdump"));
 
 		UpdateLauncherFiles(pkgRoot);
 	}
@@ -329,6 +356,7 @@ internal sealed class Updater
 				}
 				File.Copy(source, dest, true);
 				if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(dest, File.GetUnixFileMode(source));
+				if (Path.GetFileName(dest) == AppExeName) EnsureExecutable(dest);
 				Log.Write($"Updated {dest}");
 			}
 			catch (Exception ex)
@@ -376,6 +404,20 @@ internal sealed class Updater
 			}
 		}
 		TryDeleteDirectory(OldDir);
+	}
+
+	/// <summary>Linux: make sure the exe bit survived packaging.</summary>
+	private static void EnsureExecutable(string path)
+	{
+		if (OperatingSystem.IsWindows() || !File.Exists(path)) return;
+		try
+		{
+			File.SetUnixFileMode(path, File.GetUnixFileMode(path) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+		}
+		catch (Exception ex)
+		{
+			Log.Write($"chmod {path} failed: {ex.Message}");
+		}
 	}
 
 	private static bool SameContent(string a, string b)

@@ -25,6 +25,11 @@
 		<FileVersion>1.0.0.0</FileVersion>
 	</PropertyGroup>
 
+	<!-- Reproducible exe (no timestamp/random debug GUID), so unchanged launchers aren't re-downloaded by delta updates. -->
+	<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+		<LinkerArg Include="/Brepro" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Avalonia" />
 		<PackageReference Include="Avalonia.Desktop" />
