@@ -1,4 +1,4 @@
-using Avalonia.Controls.Models.TreeDataGrid;
+﻿using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Selection;
@@ -576,8 +576,12 @@ public partial class ModListView : ReactiveUserControl<ModListViewModel>
 
 	private void PrepareRow(TreeDataGridRow row, IModEntry entry)
 	{
-		row[!IsVisibleProperty] = entry.WhenAnyValue(x => x.IsVisible).ToBinding();
-		//row.Bind(IsVisibleProperty, entry.WhenAnyValue(x => x.IsVisible));
+		// Filtered rows are collapsed, not hidden: TreeDataGrid uses IsVisible=false to mark recycled rows and removes
+		// them from the tree, which crashed scroll anchoring when a filtered row was still realized.
+		var visible = entry.WhenAnyValue(x => x.IsVisible);
+		row[!MaxHeightProperty] = visible.Select(b => b ? double.PositiveInfinity : 0d).ToBinding();
+		row[!IsHitTestVisibleProperty] = visible.ToBinding();
+		row[!ClipToBoundsProperty] = visible.Select(b => !b).ToBinding();
 		//row.GetObservable(TreeDataGridRow.IsSelectedProperty).BindTo(entry, x => x.IsSelected);
 
 		entry.IsActive = ViewModel!.ListType == ModListType.Active;
