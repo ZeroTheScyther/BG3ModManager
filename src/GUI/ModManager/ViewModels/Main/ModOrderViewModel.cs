@@ -1043,6 +1043,38 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 		return false;
 	}
 
+	/// <summary>Always logged (turns logging on), to find out what triggers the "reset externally" warning.</summary>
+	private void LogExternalReset(System.IO.FileSystemEventArgs e, int activeCount, ModSettingsParseResults fileData)
+	{
+		try
+		{
+			AppServices.Get<LogWriterService>()?.ToggleLogging(true);
+			var sb = new System.Text.StringBuilder();
+			sb.AppendLine($"modsettings.lsx reset detected: {e.ChangeType} {e.FullPath}");
+			var info = new System.IO.FileInfo(e.FullPath);
+			sb.AppendLine(info.Exists ? $"  File: {info.Length} bytes, modified {info.LastWriteTime:O}" : "  File: missing");
+			sb.AppendLine($"  Manager active: {activeCount}, file active: {fileData.CountActive()} (raw {fileData.ActiveMods.Count})");
+			sb.AppendLine($"  Order: {SelectedModOrder?.Name} (modsettings order: {SelectedModOrder?.IsModSettings}), profile: {SelectedProfile?.FilePath}");
+			sb.AppendLine($"  Game running: {System.Diagnostics.Process.GetProcessesByName("bg3").Length + System.Diagnostics.Process.GetProcessesByName("bg3_dx11").Length > 0}");
+
+			var inFile = fileData.ActiveMods.Select(x => x.UUID).ToHashSet();
+			foreach (var mod in ActiveMods.Where(x => x.EntryType == ModEntryType.Mod && !ModDataLoader.IgnoreMod(x.UUID) && !inFile.Contains(x.UUID)))
+			{
+				sb.AppendLine($"  Missing from file: {mod.DisplayName} ({mod.UUID})");
+			}
+			var inManager = ActiveMods.Select(x => x.UUID).ToHashSet();
+			foreach (var mod in fileData.ActiveMods.Where(x => !inManager.Contains(x.UUID)))
+			{
+				sb.AppendLine($"  Only in file: {mod.Name} ({mod.UUID})");
+			}
+			DivinityApp.Log(sb.ToString());
+		}
+		catch (Exception ex)
+		{
+			DivinityApp.Log($"Logging modsettings reset failed: {ex}");
+		}
+	}
+
 	public void AddActiveMod(IModEntry mod)
 	{
 		if (!ActiveMods.Any(x => x.UUID == mod.UUID))
@@ -2202,6 +2234,7 @@ public partial class ModOrderViewModel : ReactiveObject, IRoutableViewModel
 					var modSettingsData = await ModDataLoader.LoadModSettingsFileAsync(e.FullPath, token);
 					if (activeCount > 0 && modSettingsData.CountActive() < activeCount)
 					{
+						LogExternalReset(e, activeCount, modSettingsData);
 						AppServices.Commands.ShowAlert("The active load order (modsettings.lsx) has been reset externally", AlertType.Danger, 270);
 						RxApp.MainThreadScheduler.Schedule(() =>
 						{
