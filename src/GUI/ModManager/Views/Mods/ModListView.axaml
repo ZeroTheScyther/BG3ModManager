@@ -34,13 +34,6 @@
             <Setter Property="Foreground" Value="{DynamicResource ModListHoveredTextForeground}" />
         </Style>
 
-        <Style Selector="Expander /template/ ToggleButton#PART_ToggleButton">
-            <!--<Setter Property="ToolTip.VerticalOffset" Value="-2" />
-            <Setter Property="ToolTip.Placement" Value="Top" />-->
-            <Setter Property="ToolTip.ShowDelay" Value="500" />
-            <Setter Property="ToolTip.Tip" Value="Toggle Filter" />
-        </Style>
-
         <!--<Style Selector="TreeDataGridRow[IsSelected=false] /template/ TreeDataGridCellsPresenter#PART_CellsPresenter:pointerover">
             <Setter Property="Background" Value="{DynamicResource ModListHoveredCellBackground}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ModListHoveredCellBorder}" />
@@ -119,26 +112,19 @@
                 Classes="Title"
                 Text="{Binding Title}"
                 TextAlignment="Left" />
-            <Expander Name="FilterExpander"
+            <controls:EnhancedTextBox Name="FilterTextBox"
                 Grid.Column="1"
-                Margin="0"
+                Width="200"
+                Margin="4,0,0,0"
                 VerticalAlignment="Center"
-                BorderThickness="0"
-                ExpandDirection="Right"
-                Theme="{StaticResource FilterButtonExpander}">
-                <controls:EnhancedTextBox Name="FilterTextBox"
-                    Width="200"
-                    Margin="0"
-                    Padding="0"
-                    VerticalContentAlignment="Center"
-                    AcceptsReturn="False"
-                    AcceptsTab="False"
-                    ContextFlyout="{StaticResource EnhancedTextBoxContextFlyout}"
-                    MaxLines="1"
-                    TextAlignment="Left"
-                    UseFloatingWatermark="False"
-                    Watermark="{Binding FilterPlaceholderText}" />
-            </Expander>
+                VerticalContentAlignment="Center"
+                AcceptsReturn="False"
+                AcceptsTab="False"
+                ContextFlyout="{StaticResource EnhancedTextBoxContextFlyout}"
+                MaxLines="1"
+                TextAlignment="Left"
+                UseFloatingWatermark="False"
+                Watermark="{Binding FilterPlaceholderText}" />
 
             <TextBlock Grid.Column="2"
                 Margin="4,0,0,0"

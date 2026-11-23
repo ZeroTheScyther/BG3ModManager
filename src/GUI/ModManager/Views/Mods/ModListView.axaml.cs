@@ -687,8 +687,6 @@ public partial class ModListView : ReactiveUserControl<ModListViewModel>
 				//	}
 				//}, OnError));
 
-				d(FilterExpander.GetObservable(Expander.IsExpandedProperty).Skip(1).BindTo(ViewModel, x => x.IsFilterEnabled));
-
 				//Throttle filtering here so we can be sure we're delaying when the user may be typing
 				d(FilterTextBox.GetObservable(TextBox.TextProperty)
 				.Skip(1)

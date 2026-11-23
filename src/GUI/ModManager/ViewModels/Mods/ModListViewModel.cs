@@ -25,7 +25,6 @@ public partial class ModListViewModel : ReactiveObject
 
 	[Reactive] public partial string? Title { get; set; }
 	[Reactive] public partial string? FilterInputText { get; set; }
-	[Reactive] public partial bool IsFilterEnabled { get; set; }
 	[Reactive] public partial int TotalMods { get; private set; }
 	[Reactive] public partial int TotalModsHidden { get; private set; }
 	[Reactive] public partial int TotalModsSelected { get; private set; }
@@ -56,10 +55,10 @@ public partial class ModListViewModel : ReactiveObject
 		AppServices.Interactions.OpenModContainerSettings.Handle(container).Subscribe();
 	}
 
-	private static string ToFilterResultText(ValueTuple<int, int, int, string?, bool> x)
+	private static string ToFilterResultText(ValueTuple<int, int, int, string?> x)
 	{
-		var (total, totalHidden, totalSelected, filterText, isEnabled) = x;
-		if (total <= 0 || !isEnabled) return string.Empty;
+		var (total, totalHidden, totalSelected, filterText) = x;
+		if (total <= 0) return string.Empty;
 
 		List<string> texts = [];
 		if (!string.IsNullOrWhiteSpace(filterText))
@@ -249,14 +248,12 @@ public partial class ModListViewModel : ReactiveObject
 		.Subscribe(_ => CountMods());
 
 		_filterResultTextHelper = this.WhenAnyValue(x => x.TotalMods, x => x.TotalModsHidden, x => x.TotalModsSelected,
-			x => x.FilterInputText, x => x.IsFilterEnabled)
+			x => x.FilterInputText)
 			.Select(ToFilterResultText)
 			.ToUIProperty(this, x => x.FilterResultText);
 
-		//Disable/enable filtering depending on the expander
-		this.WhenAnyValue(x => x.IsFilterEnabled, x => x.FilterInputText)
+		this.WhenAnyValue(x => x.FilterInputText)
 			.ObserveOn(RxApp.MainThreadScheduler)
-			.Select(x => x.Item1 ? x.Item2 : null)
 			.Subscribe(searchText =>
 			{
 				ModUtils.FilterMods(searchText, _mods);
