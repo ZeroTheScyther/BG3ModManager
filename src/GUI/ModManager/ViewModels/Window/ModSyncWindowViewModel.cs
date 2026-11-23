@@ -1,4 +1,4 @@
-using DynamicData.Binding;
+﻿using DynamicData.Binding;
 
 using ModManager.Models.Mod;
 using ModManager.Models.Mod.Order;
@@ -20,6 +20,12 @@ public sealed record SyncAddressRow(string Address, string Kind, string Source);
 
 public sealed record SyncPlanRow(string Status, string Name, string FileName, string Size, string StatusColor);
 
+/// <summary>Entry of the Join tab's "Sync to" dropdown. Order == null means "Create new order".</summary>
+public sealed record SyncTargetOption(string Label, ModOrder? Order)
+{
+	public override string ToString() => Label;
+}
+
 /// <summary>
 /// Mod Sync window: host your active mods + load order for friends, or join a friend's session with an invite code.
 /// Both sides run the same app; there's no separate server.
@@ -33,7 +39,8 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	public RxCommandUnit CloseCommand { get; }
 	#endregion
 
-	private sealed record ClientState(string? LastInvite, bool ExportToGame);
+	/// <param name="SyncTarget">File path of the order last synced to; null = create a new order.</param>
+	private sealed record ClientState(string? LastInvite, bool ExportToGame, string? SyncTarget = null);
 
 	private readonly IModManagerService _manager;
 	private readonly IPathwaysService _pathways;
@@ -75,6 +82,14 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	[Reactive] public partial string? JoinStatus { get; private set; }
 	[Reactive] public partial string? PlanSummary { get; private set; }
 	[Reactive] public partial bool ExportToGame { get; set; }
+	[Reactive] public partial SyncTargetOption? SyncTarget { get; set; }
+	[Reactive] public partial string? NewOrderName { get; set; }
+	[ObservableAsProperty] public partial bool IsNewOrderTarget { get; }
+	public ObservableCollection<SyncTargetOption> SyncTargets { get; } = [];
+	private string? _savedSyncTarget;
+	private string? _hostName;
+	/// <summary>Last auto-filled NewOrderName; replaced when the host changes unless the user typed their own.</summary>
+	private string? _suggestedName;
 	[Reactive] public partial double ProgressPercent { get; private set; }
 	[Reactive] public partial string? ProgressText { get; private set; }
 	[Reactive] public partial string? LastBackupFolder { get; private set; }
@@ -177,8 +192,19 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			};
 		}
 
+		_isNewOrderTargetHelper = this.WhenAnyValue(x => x.SyncTarget).Select(t => t?.Order == null).ToUIPropertyImmediate(this, x => x.IsNewOrderTarget, true);
+
 		this.WhenAnyValue(x => x.ExportToGame).Skip(1).Subscribe(_ => SaveClientState());
-		this.WhenAnyValue(x => x.IsVisible).Where(v => v).Subscribe(_ => { if (!IsHosting) RefreshAddresses(); });
+		this.WhenAnyValue(x => x.SyncTarget).Skip(1).WhereNotNull().Subscribe(t =>
+		{
+			_savedSyncTarget = t.Order?.FilePath;
+			SaveClientState();
+		});
+		this.WhenAnyValue(x => x.IsVisible).Where(v => v).Subscribe(_ =>
+		{
+			if (!IsHosting) RefreshAddresses();
+			RefreshSyncTargets();
+		});
 	}
 
 	private (ModSyncIdentity Identity, FileHashCache Hashes, ModSyncHostService Host)? TryGetCore()
@@ -341,6 +367,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			if (state == null) return;
 			InviteInput = state.LastInvite;
 			ExportToGame = state.ExportToGame;
+			_savedSyncTarget = state.SyncTarget;
 		}
 		catch (Exception ex)
 		{
@@ -353,13 +380,55 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 		try
 		{
 			IODirectory.CreateDirectory(DataFolder);
-			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), ExportToGame)));
+			IOFile.WriteAllText(ClientStateFile, JsonSerializer.Serialize(new ClientState(InviteInput?.Trim(), ExportToGame, _savedSyncTarget)));
 			if (!OperatingSystem.IsWindows()) IOFile.SetUnixFileMode(ClientStateFile, System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite);
 		}
 		catch (Exception ex)
 		{
 			DivinityApp.Log($"Failed to save '{ClientStateFile}': {ex.Message}");
 		}
+	}
+
+	/// <summary>Rebuilds the "Sync to" dropdown from the saved orders, keeping the remembered choice selected.</summary>
+	private void RefreshSyncTargets()
+	{
+		var orders = ViewModelLocator.ModOrder.ExternalModOrders
+			.Where(o => o.FilePath.IsValid())
+			.OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var wanted = _savedSyncTarget;
+
+		SyncTargets.Clear();
+		SyncTargets.Add(new SyncTargetOption("Create new order", null));
+		foreach (var o in orders) SyncTargets.Add(new SyncTargetOption(o.Name ?? IOPath.GetFileNameWithoutExtension(o.FilePath!), o));
+
+		SyncTarget = SyncTargets.FirstOrDefault(t => t.Order != null && wanted != null && SamePath(t.Order.FilePath, wanted)) ?? SyncTargets[0];
+		UpdateSuggestedName();
+	}
+
+	private void UpdateSuggestedName()
+	{
+		if (NewOrderName.IsValid() && NewOrderName != _suggestedName) return;
+		_suggestedName = SuggestNewOrderName();
+		NewOrderName = _suggestedName;
+	}
+
+	private static bool SamePath(string? a, string? b) => a.IsValid() && b.IsValid()
+		&& string.Equals(IOPath.GetFullPath(a!), IOPath.GetFullPath(b!), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+	private string SuggestNewOrderName()
+	{
+		var baseName = $"Sync_{(_hostName.IsValid() ? _hostName : "Host")}";
+		var name = baseName;
+		for (var i = 2; OrderNameTaken(name); i++) name = $"{baseName} {i}";
+		return name;
+	}
+
+	private static bool OrderNameTaken(string name)
+	{
+		var modOrder = ViewModelLocator.ModOrder;
+		var path = modOrder.GetOrderFilePath(name);
+		return IOFile.Exists(path) || modOrder.ExternalModOrders.Any(o => SamePath(o.FilePath, path));
 	}
 
 	private async Task<List<LocalModFile>> ScanLocalModsAsync(string modsDir, FileHashCache hashes, CancellationToken token)
@@ -424,6 +493,11 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			var (conn, manifest) = await ModSyncConnection.ConnectAsync(invite, token);
 			_connection = conn;
 			SaveClientState();
+			if (manifest.HostName.IsValid() && manifest.HostName != _hostName)
+			{
+				_hostName = manifest.HostName;
+				UpdateSuggestedName();
+			}
 
 			var local = await Task.Run(() => ScanLocalModsAsync(modsDir!, core.Hashes, token), token);
 			var plan = ModSyncPlanner.BuildPlan(manifest, local);
@@ -473,6 +547,21 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	private async Task SyncAsync()
 	{
 		if (_connection == null || _plan == null || TryGetCore() is not { } core) return;
+		var target = SyncTarget?.Order;
+		var newName = NewOrderName?.Trim();
+		if (target == null)
+		{
+			if (!newName.IsValid())
+			{
+				JoinStatus = "Enter a name for the new order.";
+				return;
+			}
+			if (OrderNameTaken(newName!))
+			{
+				JoinStatus = $"'{newName}' already exists.";
+				return;
+			}
+		}
 		var pathways = _pathways.Data;
 		var modsDir = pathways.AppDataModsPath!;
 		var gameFolder = pathways.AppDataGameFolder.IsValid() ? pathways.AppDataGameFolder! : IOPath.GetDirectoryName(modsDir)!;
@@ -525,7 +614,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 				summary += $" Couldn't load {string.Join(", ", stillMissing)}; press Refresh.";
 			}
 
-			var (orderName, missing) = await ApplyHostLoadOrderAsync(plan.Manifest, token);
+			var (orderName, missing) = await ApplyHostLoadOrderAsync(plan.Manifest, target, newName, token);
 			summary += $" Order: {orderName}.";
 			if (missing.Count > 0) summary += $" Missing: {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", ..." : "")}.";
 			if (ExportToGame)
@@ -563,14 +652,16 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 	}
 
 	/// <summary>
-	/// Writes the host's load order to one order per host ("Sync_HostName"), overwritten on every sync, and selects it.
-	/// The user's own orders are never touched.
+	/// Writes the host's load order into <paramref name="target"/> (replacing its contents), or into a new order named
+	/// <paramref name="newName"/> when target is null, then selects it. No other order is touched.
 	/// </summary>
-	private async Task<(string Name, List<string> Missing)> ApplyHostLoadOrderAsync(SyncManifest manifest, CancellationToken token)
+	private async Task<(string Name, List<string> Missing)> ApplyHostLoadOrderAsync(SyncManifest manifest, ModOrder? target, string? newName, CancellationToken token)
 	{
-		var name = $"Sync_{(manifest.HostName.Length > 0 ? manifest.HostName : "Host")}";
 		var modOrder = ViewModelLocator.ModOrder;
-		var path = modOrder.GetOrderFilePath(name);
+		// The target may have been deleted or the list reloaded (sync reloads mods); find it again by path.
+		if (target != null) target = modOrder.ExternalModOrders.FirstOrDefault(o => SamePath(o.FilePath, target.FilePath)) ?? target;
+		var path = target?.FilePath ?? modOrder.GetOrderFilePath(newName!);
+		var name = target?.Name ?? IOPath.GetFileNameWithoutExtension(path);
 
 		var order = new ModOrder { Name = name, FilePath = path };
 		List<string> missing = [];
@@ -586,7 +677,7 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			throw new InvalidOperationException($"Couldn't save '{name}'.");
 		}
 
-		var existing = modOrder.ExternalModOrders.FirstOrDefault(x => x.FilePath.IsValid() && IOPath.GetFullPath(x.FilePath!) == IOPath.GetFullPath(path));
+		var existing = modOrder.ExternalModOrders.FirstOrDefault(x => SamePath(x.FilePath, path));
 		if (existing != null)
 		{
 			existing.CopyOrder(order);
@@ -597,6 +688,15 @@ public partial class ModSyncWindowViewModel : ReactiveObject, IClosableViewModel
 			existing = order;
 		}
 		modOrder.SelectOrder(existing);
+
+		// Next sync goes to the same order by default.
+		_savedSyncTarget = path;
+		RxApp.MainThreadScheduler.Schedule(() =>
+		{
+			NewOrderName = null;
+			RefreshSyncTargets();
+			SaveClientState();
+		});
 		return (name, missing);
 	}
 	#endregion

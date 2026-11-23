@@ -159,7 +159,15 @@
 								</ListBox.ItemTemplate>
 							</ListBox>
 
-							<StackPanel Grid.Row="4" Margin="0,8,0,0">
+							<StackPanel Grid.Row="4" Margin="0,8,0,0" Spacing="6">
+								<StackPanel Orientation="Horizontal" Spacing="8">
+									<TextBlock VerticalAlignment="Center" Text="Sync to:" />
+									<ComboBox MinWidth="220" ItemsSource="{Binding SyncTargets}" SelectedItem="{Binding SyncTarget}" />
+									<TextBox MinWidth="220"
+									    IsVisible="{Binding IsNewOrderTarget}"
+									    Text="{Binding NewOrderName}"
+									    Watermark="Order name" />
+								</StackPanel>
 								<CheckBox Content="Export to game" IsChecked="{Binding ExportToGame}" />
 							</StackPanel>
 
