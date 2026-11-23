@@ -82,7 +82,45 @@ internal class Program
 			Environment.Exit(0);
 			return;
 		}
-		BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+		AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+		{
+			if (e.ExceptionObject is Exception ex) WriteCrashLog(ex);
+		};
+		try
+		{
+			BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+		}
+		catch (Exception ex)
+		{
+			WriteCrashLog(ex);
+			throw;
+		}
+	}
+
+	private static bool _crashLogged;
+
+	/// <summary>
+	/// Always writes _Logs/crash_*.log, independent of Debug Mode, so hard crashes leave a trace.
+	/// </summary>
+	private static void WriteCrashLog(Exception ex)
+	{
+		if (_crashLogged) return;
+		_crashLogged = true;
+		try
+		{
+			var dir = System.IO.Path.Join(AppContext.BaseDirectory, "_Logs");
+			System.IO.Directory.CreateDirectory(dir);
+			var file = System.IO.Path.Join(dir, $"crash_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.log");
+			var version = typeof(Program).Assembly.GetName().Version;
+			System.IO.File.WriteAllText(file,
+				$"Version: {version}\nOS: {Environment.OSVersion} ({System.Runtime.InteropServices.RuntimeInformation.OSDescription})\n" +
+				$"Runtime: {Environment.Version}\nTime: {DateTime.Now:O}\n\n{ex}\n");
+			Console.Error.WriteLine($"Crash log written to {file}");
+		}
+		catch
+		{
+			// Nothing else we can do while crashing.
+		}
 	}
 
 	public static AppBuilder BuildAvaloniaApp()
