@@ -23,6 +23,8 @@
 		<Product>Baldur's Gate 3 Mod Manager</Product>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
+		<!-- No commit hash in the version, so the exe only changes when the launcher does (delta updates). -->
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 	</PropertyGroup>
 
 	<!-- Reproducible exe (no timestamp/random debug GUID), so unchanged launchers aren't re-downloaded by delta updates. -->
