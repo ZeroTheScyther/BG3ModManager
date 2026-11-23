@@ -9,13 +9,39 @@
     xmlns:suki="https://github.com/kikipoulet/SukiUI"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
+	<!--  Visible input borders. More specific styles below can still override them.  -->
+	<Style Selector="TextBox">
+		<Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+		<Setter Property="PlaceholderForeground" Value="{DynamicResource InputPlaceholderBrush}" />
+	</Style>
+	<!--  Suki draws the placeholder at 0.5 opacity on top of an already dim color.  -->
+	<Style Selector="TextBox /template/ TextBlock#PART_Placeholder[IsVisible=True]">
+		<Setter Property="Opacity" Value="1" />
+	</Style>
+	<Style Selector="TextBox:error">
+		<Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" />
+	</Style>
+	<Style Selector="CheckBox">
+		<Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+		<Setter Property="BorderThickness" Value="1" />
+	</Style>
+	<!--  Suki's dark theme ignores BorderBrush and draws a faint glass gradient, so draw ours on the card's overlay border.  -->
+	<!--  PART_GlassBorder is the card in Suki's TextBox template; it follows the TextBox's BorderBrush (incl. :error).
+	      Template-set values beat plain styles, so these need a condition ([IsVisible=True], :not(:pointerover)) to win.  -->
+	<Style Selector="suki|GlassCard#PART_GlassBorder[IsVisible=True] /template/ Border#PART_ClipBorder">
+		<Setter Property="BorderBrush" Value="{Binding $parent[TextBox].BorderBrush}" />
+	</Style>
+	<Style Selector="suki|GlassCard#PART_Box:not(:pointerover) /template/ Border#PART_ClipBorder">
+		<Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+	</Style>
+
 	<!--  Default EnhancedTextBox styles, derived from SukiUI  -->
 	<Style Selector="controls|EnhancedTextBox.default">
 		<Setter Property="ContextFlyout" Value="{StaticResource EnhancedTextBoxContextFlyout}" />
 		<Setter Property="VerticalContentAlignment" Value="Center" />
 		<Setter Property="BorderThickness" Value="1" />
 		<Setter Property="FontSize" Value="14" />
-		<Setter Property="BorderBrush" Value="{DynamicResource SukiControlBorderBrush}" />
+		<Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
 		<Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
 		<Setter Property="Background" Value="{DynamicResource SukiBackground}" />
 		<Setter Property="Foreground" Value="{DynamicResource SukiText}" />
@@ -129,7 +155,7 @@
 	<Style Selector="controls|EnhancedTextBox.right">
 		<Setter Property="CornerRadius" Value="0" />
 		<Setter Property="Background" Value="{DynamicResource SukiCardBackground}" />
-		<Setter Property="BorderBrush" Value="{DynamicResource SukiControlBorderBrush}" />
+		<Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
 		<Setter Property="BorderThickness" Value="1" />
 		<Setter Property="Padding" Value="4" />
 		<Setter Property="Margin" Value="0,0,0,8" />

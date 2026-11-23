@@ -1,4 +1,4 @@
-<UserControl x:Class="ModManager.Views.Mods.ModListView"
+﻿<UserControl x:Class="ModManager.Views.Mods.ModListView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:ModManager.Controls"
@@ -22,10 +22,6 @@
         <vm:DesignModListViewModel />
     </Design.DataContext>
     <UserControl.Styles>
-        <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
-            <Setter Property="Opacity" Value="0.3" />
-        </Style>
-
         <Style Selector="TreeDataGridTextCell:pointerover /template/ Border#CellBorder > TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource ModListHoveredTextForeground}" />
         </Style>

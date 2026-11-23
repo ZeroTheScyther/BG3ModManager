@@ -6,6 +6,10 @@
 	</Design.PreviewWith>
 	<ResourceDictionary.ThemeDictionaries>
 		<ResourceDictionary x:Key="Light">
+			<!--  Borders of text fields and checkboxes (Suki's defaults are barely visible)  -->
+			<SolidColorBrush x:Key="InputBorderBrush" Color="#8A8A8A" />
+			<SolidColorBrush x:Key="InputPlaceholderBrush" Color="#6E6E6E" />
+
 			<Color x:Key="ModListHoveredTextForeground">#2E664B</Color>
 
 			<Color x:Key="ModListHoveredCellBackground">#5C5F74</Color>
@@ -29,6 +33,10 @@
 			<Color x:Key="ProgressionBarForegroundColor">#0000FF</Color>
 		</ResourceDictionary>
 		<ResourceDictionary x:Key="Dark">
+			<!--  Borders of text fields and checkboxes (Suki's defaults are barely visible)  -->
+			<SolidColorBrush x:Key="InputBorderBrush" Color="#8C8C8C" />
+			<SolidColorBrush x:Key="InputPlaceholderBrush" Color="#A8A8A8" />
+
 			<Color x:Key="ModListHoveredTextForeground">#73FFBB</Color>
 
 			<Color x:Key="ModListHoveredCellBackground">#5C5F74</Color>
